@@ -50,10 +50,18 @@ app.get('/health', (req, res) => {
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
+const blockRoutes = require('./routes/blocks');
+const adminRoutes = require('./routes/admin');
+const coordinatorRoutes = require('./routes/coordinators');
+const uploadRoutes = require('./routes/uploads');
 
 // API routes
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
+app.use('/blocks', blockRoutes);
+app.use('/admin', adminRoutes);
+app.use('/coordinators', coordinatorRoutes);
+app.use('/uploads', uploadRoutes);
 
 // API info endpoint
 app.get('/api', (req, res) => {
@@ -72,7 +80,23 @@ app.get('/api', (req, res) => {
         'GET /users - Get all users (admin)',
         'POST /users - Create user (admin)',
         'GET /users/:id - Get user by ID',
-        'PUT /users/:id - Update user (admin)'
+        'PUT /users/:id - Update user (admin)',
+        'GET /blocks/:number - Get block by number',
+        'GET /blocks/:id/coordinators - Get block coordinators',
+        'GET /coordinators/:id/blocks - Get coordinator blocks',
+        'GET /admin/blocks - Get all blocks (admin)',
+        'GET /admin/blocks/:id - Get block by ID (admin)',
+        'POST /admin/blocks - Create block (admin)',
+        'PUT /admin/blocks/:id - Update block (admin)',
+        'DELETE /admin/blocks/:id - Delete block (admin)',
+        'POST /admin/blocks/initialize - Initialize default blocks (admin)',
+        'POST /admin/blocks/:id/coordinators - Assign coordinator (admin)',
+        'DELETE /admin/blocks/:id/coordinators/:coordinatorId - Remove coordinator (admin)',
+        'GET /admin/assignments - Get assignment matrix (admin)',
+        'POST /uploads/photos - Upload photos (authenticated)',
+        'GET /uploads/photos/:filename - Serve photo file',
+        'DELETE /uploads/photos/:filename - Delete photo (admin)',
+        'GET /uploads/config - Get upload configuration'
       ]
     }
   });

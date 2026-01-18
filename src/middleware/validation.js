@@ -127,10 +127,89 @@ const userSchemas = {
   })
 };
 
+// Block validation schemas
+const blockSchemas = {
+  createBlock: Joi.object({
+    block_number: Joi.number()
+      .integer()
+      .min(1)
+      .max(200) // Allow higher numbers for testing
+      .required()
+      .messages({
+        'number.min': 'Block number must be at least 1',
+        'number.max': 'Block number must not exceed 200'
+      }),
+    name: Joi.string()
+      .max(100)
+      .optional(),
+    description: Joi.string()
+      .max(500)
+      .optional()
+  }),
+
+  updateBlock: Joi.object({
+    name: Joi.string()
+      .max(100)
+      .optional(),
+    description: Joi.string()
+      .max(500)
+      .optional()
+  }).min(1), // At least one field must be provided
+
+  assignCoordinator: Joi.object({
+    coordinator_id: Joi.string().required()
+  }),
+
+  getBlocksQuery: Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(50),
+    search: Joi.string().max(100).optional()
+  })
+};
+
+// File upload validation schemas
+const fileSchemas = {
+  photoFilename: Joi.object({
+    filename: Joi.string()
+      .pattern(/^[a-zA-Z0-9_.-]+\.(jpg|jpeg|png|webp)$/i)
+      .required()
+      .messages({
+        'string.pattern.base': 'Invalid filename format'
+      })
+  }),
+
+  photoQuery: Joi.object({
+    thumbnail: Joi.string().valid('true', 'false').optional()
+  })
+};
+
 // Parameter validation schemas
 const paramSchemas = {
   userId: Joi.object({
     id: Joi.string().required()
+  }),
+  
+  blockId: Joi.object({
+    id: Joi.alternatives().try(
+      Joi.number().integer().min(1),
+      Joi.string().valid('general')
+    ).required()
+  }),
+
+  blockNumber: Joi.object({
+    number: Joi.number().integer().min(1).max(100).required()
+  }),
+
+  coordinatorId: Joi.object({
+    coordinatorId: Joi.string().required()
+  }),
+
+  blockIdAndCoordinatorId: Joi.object({
+    id: Joi.alternatives().try(
+      Joi.number().integer().min(1),
+      Joi.string().valid('general')
+    ).required(),
+    coordinatorId: Joi.string().required()
   })
 };
 
@@ -138,5 +217,7 @@ module.exports = {
   validate,
   authSchemas,
   userSchemas,
+  blockSchemas,
+  fileSchemas,
   paramSchemas
 };
