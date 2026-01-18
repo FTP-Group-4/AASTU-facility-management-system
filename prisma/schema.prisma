@@ -1,0 +1,267 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User roles enum
+enum UserRole {
+  reporter
+  coordinator
+  electrical_fixer
+  mechanical_fixer
+  admin
+}
+
+// Report status enum
+enum ReportStatus {
+  submitted
+  under_review
+  approved
+  rejected
+  assigned
+  in_progress
+  completed
+  closed
+  reopened
+}
+
+// Report category enum
+enum ReportCategory {
+  electrical
+  mechanical
+}
+
+// Priority levels enum
+enum Priority {
+  emergency
+  high
+  medium
+  low
+}
+
+// Location type enum
+enum LocationType {
+  specific
+  general
+}
+
+// Notification type enum
+enum NotificationType {
+  info
+  warning
+  alert
+}
+
+// Users table
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  password_hash     String
+  full_name         String
+  role              UserRole
+  is_active         Boolean  @default(true)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  // Relations
+  submitted_reports Report[] @relation("ReportSubmitter")
+  assigned_reports  Report[] @relation("ReportAssignee")
+  notifications     Notification[]
+  coordinator_assignments CoordinatorAssignment[]
+  workflow_history  WorkflowHistory[]
+  audit_logs        AuditLog[]
+
+  @@map("users")
+}
+
+// Blocks table
+model Block {
+  id          Int      @id @default(autoincrement())
+  block_number Int     @unique
+  name        String?
+  description String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Relations
+  reports     Report[]
+  coordinator_assignments CoordinatorAssignment[]
+
+  @@map("blocks")
+}
+
+// Reports table
+model Report {
+  id                    String         @id @default(cuid())
+  ticket_id             String         @unique
+  category              ReportCategory
+  location_type         LocationType
+  block_id              Int?
+  room_number           String?
+  location_description  String?
+  equipment_description String
+  problem_description   String
+  status                ReportStatus   @default(submitted)
+  priority              Priority?
+  submitted_by          String
+  assigned_to           String?
+  rejection_reason      String?
+  completion_notes      String?
+  parts_used            String?
+  time_spent_minutes    Int?
+  rating                Int?
+  feedback              String?
+  created_at            DateTime       @default(now())
+  updated_at            DateTime       @updatedAt
+
+  // Relations
+  submitter             User           @relation("ReportSubmitter", fields: [submitted_by], references: [id])
+  assignee              User?          @relation("ReportAssignee", fields: [assigned_to], references: [id])
+  block                 Block?         @relation(fields: [block_id], references: [id])
+  photos                ReportPhoto[]
+  duplicate_reports     DuplicateReport[]
+  completion_details    CompletionDetail?
+  workflow_history      WorkflowHistory[]
+  notifications         Notification[]
+
+  @@map("reports")
+}
+
+// Report photos table
+model ReportPhoto {
+  id           String   @id @default(cuid())
+  report_id    String
+  filename     String
+  original_name String
+  file_path    String
+  file_size    Int
+  mime_type    String
+  thumbnail_path String?
+  created_at   DateTime @default(now())
+
+  // Relations
+  report       Report   @relation(fields: [report_id], references: [id], onDelete: Cascade)
+
+  @@map("report_photos")
+}
+
+// Duplicate reports tracking
+model DuplicateReport {
+  id                String   @id @default(cuid())
+  original_report_id String
+  duplicate_report_id String
+  similarity_score  Float
+  created_at        DateTime @default(now())
+
+  // Relations
+  original_report   Report   @relation(fields: [original_report_id], references: [id])
+
+  @@unique([original_report_id, duplicate_report_id])
+  @@map("duplicate_reports")
+}
+
+// Completion details table
+model CompletionDetail {
+  id                String   @id @default(cuid())
+  report_id         String   @unique
+  completed_by      String
+  completion_notes  String
+  parts_used        String?
+  time_spent_minutes Int
+  completion_photos String[] // Array of photo URLs
+  completed_at      DateTime @default(now())
+
+  // Relations
+  report            Report   @relation(fields: [report_id], references: [id])
+
+  @@map("completion_details")
+}
+
+// Coordinator assignments table
+model CoordinatorAssignment {
+  id             String   @id @default(cuid())
+  coordinator_id String
+  block_id       Int?     // null means "Location Not Specified"
+  assigned_at    DateTime @default(now())
+
+  // Relations
+  coordinator    User     @relation(fields: [coordinator_id], references: [id])
+  block          Block?   @relation(fields: [block_id], references: [id])
+
+  @@unique([coordinator_id, block_id])
+  @@map("coordinator_assignments")
+}
+
+// Notifications table
+model Notification {
+  id         String           @id @default(cuid())
+  user_id    String
+  report_id  String?
+  type       NotificationType
+  title      String
+  message    String
+  data       Json?            // Additional notification data
+  read       Boolean          @default(false)
+  created_at DateTime         @default(now())
+
+  // Relations
+  user       User             @relation(fields: [user_id], references: [id])
+  report     Report?          @relation(fields: [report_id], references: [id])
+
+  @@map("notifications")
+}
+
+// Offline queue for mobile app sync
+model OfflineQueue {
+  id         String   @id @default(cuid())
+  user_id    String
+  action     String   // 'create_report', 'update_status', etc.
+  data       Json     // Serialized action data
+  created_at DateTime @default(now())
+  synced_at  DateTime?
+
+  @@map("offline_queue")
+}
+
+// Workflow history for audit trail
+model WorkflowHistory {
+  id          String       @id @default(cuid())
+  report_id   String
+  user_id     String
+  from_status ReportStatus?
+  to_status   ReportStatus
+  action      String       // 'submit', 'approve', 'reject', 'assign', etc.
+  notes       String?
+  created_at  DateTime     @default(now())
+
+  // Relations
+  report      Report       @relation(fields: [report_id], references: [id])
+  user        User         @relation(fields: [user_id], references: [id])
+
+  @@map("workflow_history")
+}
+
+// Audit logs for system actions
+model AuditLog {
+  id          String   @id @default(cuid())
+  user_id     String?
+  action      String   // 'login', 'create_user', 'update_report', etc.
+  resource    String?  // 'user', 'report', 'block', etc.
+  resource_id String?
+  details     Json?    // Additional action details
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime @default(now())
+
+  // Relations
+  user        User?    @relation(fields: [user_id], references: [id])
+
+  @@map("audit_logs")
+}

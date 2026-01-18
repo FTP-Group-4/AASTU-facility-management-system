@@ -1,0 +1,793 @@
+AASTU Facilities Management System - Complete REST API Documentation
+
+Base Information
+- Base URL: `https://api-fms.aastu.edu.et/v1`
+- Authentication: JWT Token via AASTU OAuth
+- Format: RESTful JSON
+- Encoding: UTF-8
+- Response Format:
+{
+  "success": boolean,
+  "data": object | array | null,
+  "message": string,
+  "error_code": string | null,
+  "timestamp": "YYYY-MM-DDTHH:mm:ssZ"
+}
+
+
+AUTHENTICATION ENDPOINTS
+
+1. User Login
+POST `/auth/login`
+Access: Public
+
+Request:
+{
+  "email": "user@aastu.edu.et",
+  "password": "password123",
+  "device_id": "mobile-12345"
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+    "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+    "token_type": "bearer",
+    "expires_in": 3600,
+    "user": {
+      "id": "USR-2024-00123",
+      "email": "user@aastu.edu.et",
+      "role": "reporter", // reporter, coordinator, electrical_fixer, mechanical_fixer, admin
+      "full_name": "John Doe",
+      "permissions": ["report:create", "report:view_own"]
+    }
+  }
+}
+
+2. Token Refresh
+POST `/auth/refresh`
+Headers:
+Authorization: Bearer {refresh_token}
+
+3. Logout
+POST `/auth/logout`
+Headers:
+Authorization: Bearer {access_token}
+
+
+USER MANAGEMENT ENDPOINTS
+4. Get User Profile
+GET `/users/profile`
+Access: All authenticated users
+Response (Reporter):
+{
+  "success": true,
+  "data": {
+    "id": "USR-2024-00123",
+    "email": "student@aastustudent.edu.et",
+    "role": "reporter",
+    "full_name": "John Doe",
+    "phone": "+251911223344",
+    "department": "Computer Science",
+    "created_at": "2024-01-15T08:30:00Z",
+    "stats": {
+      "reports_submitted": 12,
+      "reports_pending": 2,
+      "avg_rating_given": 4.2
+    }
+  }
+}
+
+
+Response (Coordinator):
+{
+  "success": true,
+  "data": {
+    "id": "USR-2024-00124",
+    "email": "coordinator@aastu.edu.et",
+    "role": "coordinator",
+    "full_name": "Jane Smith",
+    "assigned_blocks": [
+      {
+        "block_id": 57,
+        "block_name": "Engineering Building"
+      }
+    ],
+    "location_not_specified": true,
+    "stats": {
+      "pending_approvals": 5,
+      "approved_today": 12,
+      "sla_compliance": 92.5
+    }
+  }
+}
+
+
+Response (Fixer - Electrical/Mechanical):
+{
+  "success": true,
+  "data": {
+    "id": "USR-2024-00125",
+    "email": "electrician@aastu.edu.et",
+    "role": "electrical_fixer",
+    "full_name": "Mike Johnson",
+    "specialization": "Electrical Systems",
+    "team": "Electrical Team A",
+    "stats": {
+      "jobs_completed": 45,
+      "jobs_in_progress": 3,
+      "avg_completion_time": "6.2h",
+      "avg_rating": 4.5
+    }
+  }
+}
+
+Response (Admin):
+{
+  "success": true,
+  "data": {
+    "id": "USR-2024-00126",
+    "email": "admin@aastu.edu.et",
+    "role": "admin",
+    "full_name": "Admin User",
+    "permissions": ["*"],
+    "system_stats": {
+      "total_users": 245,
+      "active_reports": 89,
+      "system_uptime": "99.8%"
+    }
+  }
+}
+
+
+5. Update Profile
+PUT `/users/profile`
+Request:
+{
+  "full_name": "Updated Name",
+  "phone": "+251911223344",
+  "avatar": "base64_encoded_image_optional"
+}
+
+
+REPORT ENDPOINTS (REPORTER)
+6. Submit New Report
+POST `/reports`
+Access: Reporter, Coordinator (can self-approve)
+Request:
+{
+  "category": "electrical", // "electrical" or "mechanical"
+  "location": {
+    "type": "specific", // "specific" or "general"
+    "block_id": 57, // Required if type is "specific"
+    "room_number": "201", // Optional
+    "description": "Pathway between Block 12 and Library" // Required if general
+  },
+  "equipment_description": "Lab computer #5 in row 3",
+  "problem_description": "Computer won't turn on. No power light.",
+  "photos": [
+    "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA..."
+  ]
+}
+
+Response (Success):
+{
+  "success": true,
+  "data": {
+    "ticket_id": "AASTU-FIX-20240320-0045",
+    "status": "submitted",
+    "submitted_at": "2024-03-20T10:30:00Z",
+    "coordinator_assigned": {
+      "name": "Jane Smith",
+      "email": "coordinator@aastu.edu.et"
+    },
+    "message": "Report submitted successfully"
+  }
+}
+
+Response (Duplicate detected):
+{
+  "success": false,
+  "data": {
+    "duplicate_ticket_id": "AASTU-FIX-20240320-0043",
+    "duplicate_status": "in_progress",
+    "message": "Similar issue already reported"
+  },
+  "error_code": "DUPLICATE_REPORT"
+}
+
+7. Get My Reports
+GET `/reports/my`
+Access: Reporter
+
+Query Parameters:
+- `status`: submitted, pending_approval, approved, assigned, in_progress, completed, closed, rejected
+- `priority`: emergency, high, medium, low
+- `block_id`: 1-100
+- `date_from`: YYYY-MM-DD
+- `date_to`: YYYY-MM-DD
+- `page`: 1
+- `limit`: 10
+
+Response:
+{
+  "success": true,
+  "data": {
+    "reports": [
+      {
+        "ticket_id": "AASTU-FIX-20240320-0045",
+        "category": "electrical",
+        "location": {
+          "block_id": 57,
+          "block_name": "Engineering Building",
+          "room_number": "201"
+        },
+        "problem_summary": "Projector won't turn on",
+        "status": "in_progress",
+        "priority": "high",
+        "submitted_at": "2024-03-20T10:30:00Z",
+        "sla_deadline": "2024-03-21T10:30:00Z",
+        "current_assignee": "Electrical Team A"
+      }
+    ],
+    "summary": {
+      "total": 12,
+      "pending": 2,
+      "in_progress": 3,
+      "completed": 7
+    }
+  }
+}
+
+8. Get Report Details
+GET `/reports/{ticket_id}`
+Access: Reporter (own reports), Coordinator, Fixer, Admin
+Response:
+{
+  "success": true,
+  "data": {
+    "ticket_id": "AASTU-FIX-20240320-0045",
+    "category": "electrical",
+    "location": {
+      "block_id": 57,
+      "block_name": "Engineering Building",
+      "room_number": "201"
+    },
+    "equipment_description": "Projector in classroom 201",
+    "problem_description": "Projector won't turn on. No power light when button pressed.",
+    "status": "in_progress",
+    "priority": "high",
+    "submitted_at": "2024-03-20T10:30:00Z",
+    "submitted_by": {
+      "name": "John Doe",
+      "role": "reporter",
+      "department": "Computer Science"
+    },
+    "photos": [
+      {
+        "id": "PH-001",
+        "url": "https://storage.aastu.edu.et/reports/AASTU-FIX-20240320-0045/photo1.jpg",
+        "thumbnail_url": "..."
+      }
+    ],
+    "workflow": [
+      {
+        "action": "submitted",
+        "by": "John Doe",
+        "at": "2024-03-20T10:30:00Z"
+      },
+      {
+        "action": "approved",
+        "by": "Jane Smith",
+        "priority": "high",
+        "at": "2024-03-20T11:00:00Z"
+      }
+    ],
+    "sla": {
+      "deadline": "2024-03-21T10:30:00Z",
+      "remaining_hours": 23.5
+    }
+  }
+}
+
+9. Submit Rating & Feedback
+POST `/reports/{ticket_id}/rate`
+Access: Reporter (own completed reports)
+Request:
+{
+  "rating": 3, // 0-5
+  "comment": "The fix was temporary. The issue returned after 2 days.", // Required for ratings 0-3
+  "mark_still_broken": true // Optional, within 7 days
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "ticket_id": "AASTU-FIX-20240320-0045",
+    "new_status": "reopened", // or "under_review" or "closed"
+    "message": "Thank you for your feedback. Coordinator will review."
+  }
+}
+
+
+COORDINATOR ENDPOINTS
+10. Coordinator Dashboard
+GET `/coordinator/dashboard`
+Access: Coordinator
+Response:
+{
+  "success": true,
+  "data": {
+    "assigned_blocks": [
+      {
+        "block_id": 57,
+        "block_name": "Engineering Building",
+        "pending_approvals": 3,
+        "in_progress": 5,
+        "overdue": 1
+      }
+    ],
+    "pending_reports": [
+      {
+        "ticket_id": "AASTU-FIX-20240320-0046",
+        "category": "mechanical",
+        "location": "Block 57, Room 305",
+        "problem_summary": "Broken window",
+        "submitted_at": "2024-03-20T09:15:00Z",
+        "submitted_by": "Student Name",
+        "photos_count": 2,
+        "possible_duplicates": [
+          {
+            "ticket_id": "AASTU-FIX-20240319-0123",
+            "status": "completed"
+          }
+        ]
+      }
+    ],
+    "stats": {
+      "total_pending": 5,
+      "approved_today": 8,
+      "sla_compliance_rate": 94.2
+    }
+  }
+}
+
+11. Review & Approve/Reject Report
+POST `/coordinator/reports/{ticket_id}/review`
+Access: Coordinator (assigned blocks)
+Request:
+{
+  "action": "approve", // "approve", "reject", "reviewing"
+  "priority": "high", // Required if approve: "emergency", "high", "medium", "low"
+  "rejection_reason": "Not a maintenance issue" // Required if reject
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "ticket_id": "AASTU-FIX-20240320-0046",
+    "new_status": "approved",
+    "priority": "high",
+    "sla_deadline": "2024-03-21T09:15:00Z",
+    "message": "Report approved and assigned to maintenance queue"
+  }
+}
+
+12. Get Reports for Assigned Blocks
+GET `/coordinator/reports`
+Access: Coordinator
+Query Parameters:
+- `block_id`: Specific block
+- `status`: submitted, pending_approval, etc.
+- `priority`: emergency, high, medium, low
+- `date_from`: YYYY-MM-DD
+- `date_to`: YYYY-MM-DD
+
+
+FIXER ENDPOINTS (ELECTRICAL/MECHANICAL)
+13. Fixer Dashboard
+GET `/fixer/dashboard`
+Access: Electrical_Fixer, Mechanical_Fixer
+Response:
+{
+  "success": true,
+  "data": {
+    "assigned_jobs": [
+      {
+        "ticket_id": "AASTU-FIX-20240320-0045",
+        "priority": "emergency",
+        "priority_color": "red",
+        "location": "Block 57, Room 201",
+        "problem_summary": "Electrical outlet sparking",
+        "category": "electrical",
+        "assigned_at": "2024-03-20T11:00:00Z",
+        "sla_deadline": "2024-03-20T13:00:00Z",
+        "sla_remaining": "1:45:00",
+        "reporter_name": "John Doe",
+        "photos": ["..."]
+      }
+    ],
+    "in_progress_jobs": [...],
+    "completed_today": 4,
+    "stats": {
+      "total_assigned": 3,
+      "emergency_count": 1,
+      "avg_completion_time": "3.2h"
+    }
+  }
+}
+
+14. Update Job Status
+POST `/fixer/jobs/{ticket_id}/status`
+Access: Fixer (assigned jobs)
+Request:
+{
+  "status": "in_progress", // "assigned", "in_progress", "completed"
+  "notes": "Replaced faulty circuit breaker", // Required for completion
+  "parts_used": [
+    {
+      "name": "Circuit Breaker 20A",
+      "quantity": 1
+    }
+  ],
+  "time_spent_minutes": 45
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "ticket_id": "AASTU-FIX-20240320-0045",
+    "new_status": "completed",
+    "notified_reporter": true,
+    "completion_certificate_id": "CERT-20240320-001"
+  }
+}
+
+
+15. Get Job Queue
+GET `/fixer/queue`
+Access: Fixer
+Query Parameters:
+- `priority`: Sort by priority
+- `category`: electrical or mechanical (auto-filtered by role)
+Response:
+{
+  "success": true,
+  "data": {
+    "queue": [
+      {
+        "ticket_id": "AASTU-FIX-20240320-0047",
+        "priority": "emergency",
+        "location": "Block 23, Main Hall",
+        "problem": "Exposed wires - safety hazard",
+        "waiting_time": "15 minutes",
+        "sla_urgency": "CRITICAL"
+      }
+    ],
+    "queue_stats": {
+      "total_waiting": 8,
+      "emergency_count": 2,
+      "oldest_waiting": "2:30:00"
+    }
+  }
+}
+
+ADMIN ENDPOINTS
+16. Admin Dashboard
+GET `/admin/dashboard`
+Access: Admin only
+Response:
+{
+  "success": true,
+  "data": {
+    "system_health": {
+      "uptime": "99.8%",
+      "active_users": 145,
+      "api_response_time": "125ms"
+    },
+    "reports_summary": {
+      "total_reports": 1245,
+      "reports_today": 23,
+      "completion_rate": 87.3,
+      "avg_rating": 4.2
+    },
+    "sla_compliance": {
+      "emergency": 95.2,
+      "high": 89.7,
+      "medium": 92.1,
+      "low": 96.8
+    },
+    "alerts": [
+      {
+        "type": "sla_violation",
+        "message": "2 emergency reports missed SLA",
+        "severity": "high"
+      }
+    ]
+  }
+}
+
+
+17. Manage Users
+POST `/admin/users`
+Access: Admin only
+Request (Create User):
+{
+  "email": "newuser@aastu.edu.et",
+  "role": "coordinator",
+  "full_name": "New Coordinator",
+  "assigned_blocks": [57, 58],
+  "location_not_specified": true
+}
+
+
+PUT `/admin/users/{user_id}`
+Access: Admin only
+Request (Update User):
+{
+  "role": "electrical_fixer",
+  "is_active": true,
+  "permissions": ["report:assign", "report:complete"]
+}
+
+
+18. Manage Blocks
+POST `/admin/blocks`
+Access: Admin only
+Request:
+{
+  "block_number": 101,
+  "name": "New Science Building",
+  "description": "Newly constructed science facility",
+  "floors": 5,
+  "coordinator_ids": ["USR-2024-00124"]
+}
+
+
+19. Assignment Matrix
+GET `/admin/assignments`
+Access: Admin only
+Response:
+{
+  "success": true,
+  "data": {
+    "matrix": [
+      {
+        "block_id": 57,
+        "block_name": "Engineering Building",
+        "coordinators": [
+          {
+            "id": "USR-2024-00124",
+            "name": "Jane Smith",
+            "email": "coordinator@aastu.edu.et",
+            "is_primary": true
+          }
+        ],
+        "report_count": 45
+      }
+    ],
+    "unassigned_blocks": [23, 45],
+    "location_not_specified_coordinators": [...]
+  }
+}
+
+20. Generate Reports
+POST `/admin/reports/generate`
+Access: Admin only
+Request:
+{
+  "report_type": "performance", // "performance", "compliance", "analytics"
+  "date_range": {
+    "from": "2024-03-01",
+    "to": "2024-03-31"
+  },
+  "filters": {
+    "block_ids": [57, 58],
+    "categories": ["electrical"],
+    "priority_levels": ["emergency", "high"]
+  },
+  "format": "pdf" // "pdf", "excel", "json"
+}
+
+21. System Configuration
+PUT `/admin/config`
+Access: Admin only
+Request:
+{
+  "sla_settings": {
+    "emergency_hours": 2,
+    "high_hours": 24,
+    "medium_hours": 72,
+    "low_hours": 168
+  },
+  "notification_settings": {
+    "emergency_notify_coordinator": true,
+    "sla_warning_threshold": 0.8
+  },
+  "duplicate_detection": {
+    "similarity_threshold": 0.85,
+    "check_days": 7
+  }
+}
+
+
+NOTIFICATION ENDPOINTS
+22. Get Notifications
+GET `/notifications`
+Access: All authenticated users
+Query Parameters:
+- `unread_only`: true/false
+- `type`: info, warning, alert
+- `limit`: 20
+
+Response:
+{
+  "success": true,
+  "data": {
+    "notifications": [
+      {
+        "id": "NOTIF-001",
+        "type": "alert",
+        "title": "SLA Warning",
+        "message": "Emergency report AASTU-FIX-20240320-0047 has 30 minutes remaining",
+        "data": {
+          "ticket_id": "AASTU-FIX-20240320-0047",
+          "remaining_minutes": 30
+        },
+        "read": false,
+        "created_at": "2024-03-20T13:30:00Z"
+      }
+    ],
+    "unread_count": 3
+  }
+}
+
+23. Mark Notification Read
+POST `/notifications/{notification_id}/read`
+
+
+ANALYTICS ENDPOINTS
+24. Get Analytics
+GET `/analytics`
+Access: Coordinator, Admin
+Query Parameters:
+- `block_id`: 1-100
+- `period`: day, week, month, quarter, year
+- `metric`: completion_rate, avg_time, rating, duplicate_rate
+Response:
+{
+  "success": true,
+  "data": {
+    "block_performance": [
+      {
+        "block_id": 57,
+        "block_name": "Engineering Building",
+        "metrics": {
+          "total_reports": 145,
+          "completion_rate": 92.4,
+          "avg_completion_time_hours": 18.5,
+          "avg_rating": 4.3,
+          "duplicate_rate": 8.2
+        }
+      }
+    ],
+    "priority_distribution": {
+      "emergency": 5,
+      "high": 23,
+      "medium": 67,
+      "low": 50
+    },
+    "trends": {
+      "reports_last_7_days": [23, 18, 25, 22, 27, 24, 26],
+      "completion_rate_trend": [88, 90, 92, 91, 93, 92, 94]
+    }
+  }
+}
+OFFLINE SYNC ENDPOINTS – optional if we have time
+25. Sync Offline Reports
+POST `/sync/reports`
+Access: Reporter, Coordinator (for self-submitted)
+Request:
+{
+  "pending_reports": [
+    {
+      "local_id": "local-123",
+      "category": "electrical",
+      "location": {...},
+      "equipment_description": "...",
+      "problem_description": "...",
+      "photos": [...],
+      "created_at": "2024-03-20T10:30:00Z"
+    }
+  ]
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "synced_reports": [
+      {
+        "local_id": "local-123",
+        "ticket_id": "AASTU-FIX-20240320-0048",
+        "status": "submitted"
+      }
+    ],
+    "failed_reports": [],
+    "pending_updates": [
+      {
+        "ticket_id": "AASTU-FIX-20240320-0045",
+        "status": "completed",
+        "updated_at": "2024-03-20T14:30:00Z"
+      }
+    ]
+  }
+}
+
+
+ERROR CODES
+
+
+Code
+HTTP Status
+Description
+AUTH_001
+401
+Invalid credentials
+AUTH_002
+401
+Token expired
+AUTH_003
+403
+Insufficient permissions
+VALID_001
+400
+Invalid block number (1-100)
+VALID_002
+400
+Required field missing
+VALID_003
+400
+Invalid priority level
+REPORT_001
+409
+Duplicate report detected
+REPORT_002
+404
+Report not found
+REPORT_003
+403
+Not authorized to view this report
+USER_001
+404
+User not found
+SYSTEM_001
+500
+Internal server error
+SYSTEM_002
+503
+Service temporarily unavailable
+
+
+
+RATE LIMITING
+- All endpoints: 100 requests/minute per user
+- Report submission: 10 requests/minute per user
+- Admin endpoints: 50 requests/minute per user
+
+WEBHOOK EVENTS
+POST `/webhooks/events`
+{
+  "event": "report.completed",
+  "data": {
+    "ticket_id": "AASTU-FIX-20240320-0045",
+    "completed_at": "2024-03-20T14:30:00Z",
+    "fixer_id": "USR-2024-00125",
+    "rating": 4
+  }
+}
