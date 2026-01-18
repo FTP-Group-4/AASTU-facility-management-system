@@ -16,7 +16,7 @@ class CoordinatorController {
    */
   async getDashboard(req, res) {
     try {
-      const coordinatorId = req.user.id;
+      const coordinatorId = req.user.userId; // Changed from req.user.id to req.user.userId
       
       // Get coordinator's assigned blocks
       const assignments = await prisma.coordinatorAssignment.findMany({
@@ -248,7 +248,7 @@ class CoordinatorController {
     try {
       const { id: reportId } = req.params;
       const { action, priority, rejection_reason, assigned_to, notes } = req.body;
-      const coordinatorId = req.user.id;
+      const coordinatorId = req.user.userId; // Changed from req.user.id to req.user.userId
 
       // Validate required fields
       if (!action || !['approve', 'reject', 'review'].includes(action)) {
@@ -411,7 +411,7 @@ class CoordinatorController {
    */
   async getAssignedReports(req, res) {
     try {
-      const coordinatorId = req.user.id;
+      const coordinatorId = req.user.userId; // Changed from req.user.id to req.user.userId
       const filters = req.query;
 
       // Use the existing report service with coordinator filtering
@@ -432,7 +432,7 @@ class CoordinatorController {
    */
   async getPendingReports(req, res) {
     try {
-      const coordinatorId = req.user.id;
+      const coordinatorId = req.user.userId; // Changed from req.user.id to req.user.userId
       const { page = 1, limit = 20, category, priority } = req.query;
 
       // Get coordinator's assigned blocks

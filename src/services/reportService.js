@@ -5,29 +5,52 @@ const workflowService = require('./workflowService');
 
 class ReportService {
   /**
-   * Get next sequence number for ticket ID generation
-   * @returns {Promise<number>} Next sequence number for today
+   * Generate unique ticket ID with retry logic to handle race conditions
+   * @returns {Promise<string>} Unique ticket ID
    */
-  async getNextSequenceNumber() {
-    try {
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  async generateUniqueTicketId() {
+    const maxRetries = 10;
+    let attempt = 0;
 
-      // Count reports created today
-      const todayReportsCount = await prisma.report.count({
-        where: {
-          created_at: {
-            gte: startOfDay,
-            lt: endOfDay
+    while (attempt < maxRetries) {
+      try {
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+        // Count reports created today
+        const todayReportsCount = await prisma.report.count({
+          where: {
+            created_at: {
+              gte: startOfDay,
+              lt: endOfDay
+            }
           }
-        }
-      });
+        });
 
-      return todayReportsCount + 1;
-    } catch (error) {
-      throw error;
+        // Add attempt number to avoid collisions in concurrent requests
+        const sequenceNumber = todayReportsCount + 1 + attempt;
+        const ticketId = generateTicketId(sequenceNumber);
+
+        // Check if this ticket ID already exists
+        const existingReport = await prisma.report.findUnique({
+          where: { ticket_id: ticketId }
+        });
+
+        if (!existingReport) {
+          return ticketId;
+        }
+
+        attempt++;
+      } catch (error) {
+        if (attempt === maxRetries - 1) {
+          throw error;
+        }
+        attempt++;
+      }
     }
+
+    throw new Error('Failed to generate unique ticket ID after maximum retries');
   }
 
   /**
@@ -48,9 +71,8 @@ class ReportService {
       // Enhanced location validation
       await this.validateLocation(location.type, location.block_id, location.room_number, location.description);
 
-      // Generate unique ticket ID
-      const sequenceNumber = await this.getNextSequenceNumber();
-      const ticketId = generateTicketId(sequenceNumber);
+      // Generate unique ticket ID with retry logic
+      const ticketId = await this.generateUniqueTicketId();
 
       // Create the report
       const report = await prisma.report.create({

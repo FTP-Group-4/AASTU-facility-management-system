@@ -136,6 +136,17 @@ class WorkflowService {
         if ((userRole === 'electrical_fixer' || userRole === 'mechanical_fixer')) {
           const fixerCategory = userRole === 'electrical_fixer' ? 'electrical' : 'mechanical';
           
+          console.log('Fixer validation:', {
+            userRole,
+            fixerCategory,
+            reportCategory: report.category,
+            fromStatus,
+            reportAssignedTo: report.assigned_to,
+            userId,
+            userIdType: typeof userId,
+            assignedToType: typeof report.assigned_to
+          });
+          
           if (report.category !== fixerCategory) {
             return {
               valid: false,
@@ -145,6 +156,11 @@ class WorkflowService {
 
           // For assigned reports, must be assigned to this fixer
           if (fromStatus === 'assigned' && report.assigned_to && report.assigned_to !== userId) {
+            console.log('Assignment mismatch:', {
+              reportAssignedTo: report.assigned_to,
+              userId,
+              equal: report.assigned_to === userId
+            });
             return {
               valid: false,
               error: 'Report is assigned to a different fixer'

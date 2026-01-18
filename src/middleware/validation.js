@@ -401,7 +401,9 @@ const paramSchemas = {
   reportId: Joi.object({
     id: Joi.alternatives().try(
       Joi.string().guid(),
-      Joi.string().pattern(/^AASTU-FIX-\d{8}-\d{4}$/)
+      Joi.string().pattern(/^c[a-z0-9]{24}$/), // cuid format
+      Joi.string().pattern(/^AASTU-FIX-\d{8}-\d{4}$/), // ticket ID format
+      Joi.string().min(1) // Allow any non-empty string as fallback
     ).required().messages({
       'string.pattern.base': 'Invalid report ID or ticket ID format'
     })

@@ -35,6 +35,10 @@ router.get('/queue',
  * @access Private (Fixers only)
  */
 router.post('/jobs/:id/status',
+  (req, res, next) => {
+    console.log('=== FIXER ROUTE HIT ===', req.params.id);
+    next();
+  },
   authenticate,
   authorize(['electrical_fixer', 'mechanical_fixer']),
   validate(paramSchemas.reportId, 'params'),
