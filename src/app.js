@@ -54,6 +54,7 @@ const blockRoutes = require('./routes/blocks');
 const adminRoutes = require('./routes/admin');
 const coordinatorRoutes = require('./routes/coordinators');
 const uploadRoutes = require('./routes/uploads');
+const reportRoutes = require('./routes/reports');
 
 // API routes
 app.use('/auth', authRoutes);
@@ -62,6 +63,7 @@ app.use('/blocks', blockRoutes);
 app.use('/admin', adminRoutes);
 app.use('/coordinators', coordinatorRoutes);
 app.use('/uploads', uploadRoutes);
+app.use('/reports', reportRoutes);
 
 // API info endpoint
 app.get('/api', (req, res) => {
@@ -96,7 +98,13 @@ app.get('/api', (req, res) => {
         'POST /uploads/photos - Upload photos (authenticated)',
         'GET /uploads/photos/:filename - Serve photo file',
         'DELETE /uploads/photos/:filename - Delete photo (admin)',
-        'GET /uploads/config - Get upload configuration'
+        'GET /uploads/config - Get upload configuration',
+        'POST /reports - Create maintenance report',
+        'GET /reports - Get reports with filtering',
+        'POST /reports/check-duplicates - Check for duplicate reports',
+        'GET /reports/:id - Get report by ID or ticket ID',
+        'PUT /reports/:id/status - Update report status',
+        'DELETE /reports/:id - Delete report (admin only)'
       ]
     }
   });
