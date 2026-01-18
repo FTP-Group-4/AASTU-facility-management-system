@@ -226,7 +226,8 @@ describe('Report Management Endpoints', () => {
           type: 'specific',
           block_id: 1
         },
-        equipment_description: 'Broken light switch'
+        equipment_description: 'Broken light switch',
+        problem_description: 'Light switch not working'
       };
 
       const response = await request(app)
@@ -238,6 +239,208 @@ describe('Report Management Endpoints', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data.has_duplicates).toBeDefined();
       expect(Array.isArray(response.body.data.duplicates)).toBe(true);
+      expect(response.body.data.warning_message).toBeDefined();
+      expect(response.body.data.allow_anyway).toBeDefined();
+    });
+
+    it('should return no duplicates for general location', async () => {
+      const duplicateData = {
+        category: 'electrical',
+        location: {
+          type: 'general',
+          description: 'Pathway between buildings'
+        },
+        equipment_description: 'Street light',
+        problem_description: 'Street light not working'
+      };
+
+      const response = await request(app)
+        .post('/reports/check-duplicates')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(duplicateData);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.has_duplicates).toBe(false);
+      expect(response.body.data.duplicates).toEqual([]);
+    });
+  });
+
+  describe('Duplicate Detection in Report Creation', () => {
+    it('should warn about duplicates when creating similar report', async () => {
+      // First, create a report
+      const reportData = {
+        category: 'electrical',
+        location: {
+          type: 'specific',
+          block_id: 1,
+          room_number: '101'
+        },
+        equipment_description: 'Projector in classroom',
+        problem_description: 'Projector not turning on'
+      };
+
+      const firstReport = await request(app)
+        .post('/reports')
+        .set('Authorization', `Bearer ${authToken}`)
+        .field('category', reportData.category)
+        .field('location[type]', reportData.location.type)
+        .field('location[block_id]', reportData.location.block_id.toString())
+        .field('location[room_number]', reportData.location.room_number)
+        .field('equipment_description', reportData.equipment_description)
+        .field('problem_description', reportData.problem_description)
+        .attach('photos', Buffer.from('fake image data'), 'test.jpg');
+
+      expect(firstReport.status).toBe(201);
+
+      // Now try to create a similar report
+      const similarReportData = {
+        category: 'electrical',
+        location: {
+          type: 'specific',
+          block_id: 1,
+          room_number: '101'
+        },
+        equipment_description: 'Projector in classroom',
+        problem_description: 'Projector won\'t start'
+      };
+
+      const duplicateResponse = await request(app)
+        .post('/reports')
+        .set('Authorization', `Bearer ${authToken}`)
+        .field('category', similarReportData.category)
+        .field('location[type]', similarReportData.location.type)
+        .field('location[block_id]', similarReportData.location.block_id.toString())
+        .field('location[room_number]', similarReportData.location.room_number)
+        .field('equipment_description', similarReportData.equipment_description)
+        .field('problem_description', similarReportData.problem_description)
+        .attach('photos', Buffer.from('fake image data'), 'test.jpg');
+
+      expect(duplicateResponse.status).toBe(409);
+      expect(duplicateResponse.body.success).toBe(false);
+      expect(duplicateResponse.body.error_code).toBe('DUPLICATE_REPORT');
+      expect(duplicateResponse.body.data.duplicate_ticket_id).toBeDefined();
+      expect(duplicateResponse.body.data.duplicate_status).toBeDefined();
+      expect(duplicateResponse.body.data.message).toBe('Similar issue already reported');
+    });
+
+    it('should allow creating report when ignoring duplicates', async () => {
+      const reportData = {
+        category: 'electrical',
+        location: {
+          type: 'specific',
+          block_id: 1,
+          room_number: '102'
+        },
+        equipment_description: 'Computer in lab',
+        problem_description: 'Computer not starting'
+      };
+
+      // Create first report
+      await request(app)
+        .post('/reports')
+        .set('Authorization', `Bearer ${authToken}`)
+        .field('category', reportData.category)
+        .field('location_type', reportData.location.type)
+        .field('block_id', reportData.location.block_id)
+        .field('room_number', reportData.location.room_number)
+        .field('equipment_description', reportData.equipment_description)
+        .field('problem_description', reportData.problem_description)
+        .attach('photos', Buffer.from('fake image data'), 'test.jpg');
+
+      // Create similar report with ignore_duplicates flag
+      const response = await request(app)
+        .post('/reports')
+        .set('Authorization', `Bearer ${authToken}`)
+        .field('category', reportData.category)
+        .field('location_type', reportData.location.type)
+        .field('block_id', reportData.location.block_id)
+        .field('room_number', reportData.location.room_number)
+        .field('equipment_description', reportData.equipment_description)
+        .field('problem_description', 'Computer won\'t boot up')
+        .field('ignore_duplicates', 'true')
+        .attach('photos', Buffer.from('fake image data'), 'test.jpg');
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.ticket_id).toBeDefined();
+    });
+
+    it('should not detect duplicates for general location reports', async () => {
+      const reportData = {
+        category: 'electrical',
+        location: {
+          type: 'general',
+          description: 'Near the main entrance'
+        },
+        equipment_description: 'Street light',
+        problem_description: 'Street light not working'
+      };
+
+      const response = await request(app)
+        .post('/reports')
+        .set('Authorization', `Bearer ${authToken}`)
+        .field('category', reportData.category)
+        .field('location_type', reportData.location.type)
+        .field('location_description', reportData.location.description)
+        .field('equipment_description', reportData.equipment_description)
+        .field('problem_description', reportData.problem_description)
+        .attach('photos', Buffer.from('fake image data'), 'test.jpg');
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.ticket_id).toBeDefined();
+    });
+  });
+
+  describe('GET /reports/:id/duplicates', () => {
+    it('should get duplicate reports for a specific report', async () => {
+      // Create a report first
+      const reportData = {
+        category: 'mechanical',
+        location: {
+          type: 'specific',
+          block_id: 1,
+          room_number: '201'
+        },
+        equipment_description: 'Door handle',
+        problem_description: 'Door handle is loose'
+      };
+
+      const reportResponse = await request(app)
+        .post('/reports')
+        .set('Authorization', `Bearer ${authToken}`)
+        .field('category', reportData.category)
+        .field('location[type]', reportData.location.type)
+        .field('location[block_id]', reportData.location.block_id.toString())
+        .field('location[room_number]', reportData.location.room_number)
+        .field('equipment_description', reportData.equipment_description)
+        .field('problem_description', reportData.problem_description)
+        .attach('photos', Buffer.from('fake image data'), 'test.jpg');
+
+      expect(reportResponse.status).toBe(201);
+      const ticketId = reportResponse.body.data.ticket_id;
+
+      // Get duplicates for this report
+      const duplicatesResponse = await request(app)
+        .get(`/reports/${ticketId}/duplicates`)
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(duplicatesResponse.status).toBe(200);
+      expect(duplicatesResponse.body.success).toBe(true);
+      expect(duplicatesResponse.body.data.report_id).toBeDefined();
+      expect(duplicatesResponse.body.data.ticket_id).toBe(ticketId);
+      expect(Array.isArray(duplicatesResponse.body.data.duplicates)).toBe(true);
+      expect(duplicatesResponse.body.data.total_duplicates).toBeDefined();
+    });
+
+    it('should return 404 for non-existent report', async () => {
+      const response = await request(app)
+        .get('/reports/AASTU-FIX-20240101-9999/duplicates')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(404);
+      expect(response.body.success).toBe(false);
     });
   });
 });

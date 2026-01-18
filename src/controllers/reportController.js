@@ -32,6 +32,7 @@ class ReportController {
     try {
       const userId = req.user.userId;
       const reportData = req.body;
+      const ignoreDuplicates = req.body.ignore_duplicates === 'true' || req.body.ignore_duplicates === true;
 
       // Validate photos are provided (1-3 required per requirements)
       if (!req.files || req.files.length === 0) {
@@ -57,15 +58,20 @@ class ReportController {
         ));
       }
 
-      // Check for duplicates first (unless force_submit is true)
-      const duplicates = await reportService.checkForDuplicates(reportData);
-      
-      if (duplicates.length > 0 && !req.body.force_submit) {
+      // Create report with duplicate detection
+      const result = await reportService.createReportWithDuplicateCheck(
+        reportData, 
+        userId, 
+        ignoreDuplicates
+      );
+
+      // If duplicates found and user hasn't chosen to ignore them
+      if (!result.success && result.duplicate_warning) {
         return res.status(409).json({
           success: false,
           data: {
-            duplicate_ticket_id: duplicates[0].ticket_id,
-            duplicate_status: duplicates[0].status,
+            duplicate_ticket_id: result.duplicate_result.duplicates[0]?.ticket_id,
+            duplicate_status: result.duplicate_result.duplicates[0]?.status,
             message: "Similar issue already reported"
           },
           error_code: 'DUPLICATE_REPORT',
@@ -73,8 +79,7 @@ class ReportController {
         });
       }
 
-      // Create the report
-      const report = await reportService.createReport(reportData, userId);
+      const report = result.report;
 
       // Process and associate photos
       let processedPhotos = [];
@@ -110,16 +115,27 @@ class ReportController {
         email: "coordinator@aastu.edu.et"
       };
 
+      // Prepare response data
+      const responseData = {
+        ticket_id: report.ticket_id,
+        status: report.status,
+        submitted_at: report.created_at,
+        coordinator_assigned: coordinatorAssigned,
+        message: "Report submitted successfully"
+      };
+
+      // Include duplicate information if any were found
+      if (result.duplicate_result && result.duplicate_result.duplicates.length > 0) {
+        responseData.duplicate_info = {
+          similar_reports_found: result.duplicate_result.duplicates.length,
+          message: "Report submitted successfully. Similar reports were found but you chose to proceed."
+        };
+      }
+
       // Return response in expected format
       res.status(201).json(successResponse(
         'Report submitted successfully',
-        {
-          ticket_id: report.ticket_id,
-          status: report.status,
-          submitted_at: report.created_at,
-          coordinator_assigned: coordinatorAssigned,
-          message: "Report submitted successfully"
-        }
+        responseData
       ));
     } catch (error) {
       console.error('Create report error:', error);
@@ -361,15 +377,17 @@ class ReportController {
   async checkDuplicates(req, res) {
     try {
       const reportData = req.body;
-      const duplicates = await reportService.checkForDuplicates(reportData);
+      const duplicateResult = await reportService.checkForDuplicates(reportData);
 
       res.status(200).json(successResponse(
         'Duplicate check completed',
         {
-          has_duplicates: duplicates.length > 0,
-          duplicates,
-          message: duplicates.length > 0 
-            ? 'Similar reports found. Please review before submitting.'
+          has_duplicates: duplicateResult.has_duplicates,
+          duplicates: duplicateResult.duplicates,
+          warning_message: duplicateResult.warning_message,
+          allow_anyway: duplicateResult.allow_anyway || true, // Always allow user to proceed
+          message: duplicateResult.has_duplicates 
+            ? duplicateResult.warning_message
             : 'No similar reports found.'
         }
       ));
@@ -379,6 +397,55 @@ class ReportController {
       res.status(500).json(errorResponse(
         'Failed to check for duplicates',
         'REPORT_DUPLICATE_CHECK_FAILED'
+      ));
+    }
+  }
+
+  /**
+   * Get duplicate reports for a specific report
+   * GET /reports/:id/duplicates
+   */
+  async getReportDuplicates(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.userId;
+      const userRole = req.user.role;
+
+      // Get the report first to check permissions
+      let report;
+      
+      // Check if ID is a ticket ID format (AASTU-FIX-...)
+      if (id.startsWith('AASTU-FIX-')) {
+        report = await reportService.getReportByTicketId(id);
+      } else {
+        report = await reportService.getReportById(id);
+      }
+      
+      // For now, allow access to all authenticated users
+      // TODO: Implement proper access control based on user role and report ownership
+
+      // Get duplicate reports
+      const duplicates = await reportService.getDuplicateReports(report.id);
+
+      res.status(200).json(successResponse(
+        'Duplicate reports retrieved successfully',
+        {
+          report_id: report.id,
+          ticket_id: report.ticket_id,
+          duplicates: duplicates,
+          total_duplicates: duplicates.length
+        }
+      ));
+    } catch (error) {
+      console.error('Get report duplicates error:', error);
+
+      if (error.message === 'Report not found') {
+        return res.status(404).json(notFoundResponse('Report'));
+      }
+
+      res.status(500).json(errorResponse(
+        'Failed to retrieve duplicate reports',
+        'REPORT_DUPLICATES_GET_FAILED'
       ));
     }
   }

@@ -253,7 +253,8 @@ const reportSchemas = {
         'string.min': 'Problem description must be at least 10 characters',
         'string.max': 'Problem description must not exceed 500 characters'
       }),
-    force_submit: Joi.boolean().optional().default(false)
+    force_submit: Joi.boolean().optional().default(false),
+    ignore_duplicates: Joi.boolean().optional().default(false)
   }),
 
   updateReportStatus: Joi.object({

@@ -1,5 +1,6 @@
 const prisma = require('../config/database');
 const { generateTicketId } = require('../utils/ticketGenerator');
+const duplicateDetectionService = require('./duplicateDetectionService');
 
 class ReportService {
   /**
@@ -517,82 +518,105 @@ class ReportService {
   }
 
   /**
-   * Check for duplicate reports
+   * Check for duplicate reports using enhanced duplicate detection service
    * @param {object} reportData - Report data to check
-   * @returns {Promise<array>} Array of potential duplicates
+   * @returns {Promise<object>} Duplicate detection result
    */
   async checkForDuplicates(reportData) {
     try {
-      const { location, equipment_description, category } = reportData;
+      return await duplicateDetectionService.checkForDuplicates(reportData);
+    } catch (error) {
+      console.error('Error checking for duplicates:', error);
+      // Return safe fallback to not block report submission
+      return {
+        has_duplicates: false,
+        duplicates: [],
+        warning_message: null,
+        error: 'Duplicate detection temporarily unavailable'
+      };
+    }
+  }
 
-      // Only check for duplicates in specific locations
-      if (location.type !== 'specific' || !location.block_id) {
-        return [];
+  /**
+   * Create a new report with duplicate detection
+   * @param {object} reportData - Report data
+   * @param {string} userId - User ID of the submitter
+   * @param {boolean} ignoreDuplicates - Whether to ignore duplicate warnings
+   * @returns {Promise<object>} Created report with duplicate information
+   */
+  async createReportWithDuplicateCheck(reportData, userId, ignoreDuplicates = false) {
+    try {
+      // Check for duplicates first (unless explicitly ignored)
+      let duplicateResult = null;
+      if (!ignoreDuplicates) {
+        duplicateResult = await this.checkForDuplicates(reportData);
+        
+        // If high-confidence duplicates found, return warning without creating report
+        if (duplicateResult.has_duplicates && !ignoreDuplicates) {
+          return {
+            success: false,
+            duplicate_warning: true,
+            duplicate_result: duplicateResult,
+            message: duplicateResult.warning_message
+          };
+        }
       }
 
-      // Find similar reports in the same location that are not completed/closed
-      const similarReports = await prisma.report.findMany({
-        where: {
-          block_id: location.block_id,
-          room_number: location.room_number || null,
-          category,
-          status: {
-            notIn: ['completed', 'closed']
-          },
-          equipment_description: {
-            contains: equipment_description,
-            mode: 'insensitive'
-          }
-        },
-        include: {
-          submitter: {
-            select: {
-              id: true,
-              full_name: true
-            }
-          }
-        },
-        take: 5 // Limit to 5 potential duplicates
-      });
+      // Create the report
+      const report = await this.createReport(reportData, userId);
 
-      // Calculate similarity scores (simplified)
-      const duplicates = similarReports.map(report => {
-        const similarity = this.calculateSimilarity(
-          equipment_description.toLowerCase(),
-          report.equipment_description.toLowerCase()
-        );
+      // If duplicates were found but user chose to proceed, record the relationships
+      if (duplicateResult && duplicateResult.duplicates.length > 0) {
+        await this.recordDuplicateRelationships(report.id, duplicateResult.duplicates);
+      }
 
-        return {
-          report_id: report.id,
-          ticket_id: report.ticket_id,
-          similarity_score: similarity,
-          equipment_description: report.equipment_description,
-          status: report.status,
-          submitted_by: report.submitter.full_name,
-          created_at: report.created_at
-        };
-      }).filter(duplicate => duplicate.similarity_score > 0.6); // 60% similarity threshold
-
-      return duplicates;
+      return {
+        success: true,
+        report,
+        duplicate_result: duplicateResult
+      };
     } catch (error) {
       throw error;
     }
   }
 
   /**
-   * Calculate similarity between two strings (simplified Jaccard similarity)
-   * @param {string} str1 - First string
-   * @param {string} str2 - Second string
-   * @returns {number} Similarity score (0-1)
+   * Record duplicate relationships for a new report
+   * @param {string} newReportId - New report ID
+   * @param {array} duplicates - Array of duplicate reports
+   * @returns {Promise<void>}
    */
-  calculateSimilarity(str1, str2) {
-    const words1 = new Set(str1.split(/\s+/));
-    const words2 = new Set(str2.split(/\s+/));
-    
-    const intersection = new Set([...words1].filter(word => words2.has(word)));
-    const union = new Set([...words1, ...words2]);
-    
-    return intersection.size / union.size;
+  async recordDuplicateRelationships(newReportId, duplicates) {
+    try {
+      const recordPromises = duplicates
+        .filter(duplicate => duplicate.similarity_score >= 0.7) // Only record high-confidence duplicates
+        .map(duplicate => 
+          duplicateDetectionService.recordDuplicate(
+            duplicate.report_id,
+            newReportId,
+            duplicate.similarity_score
+          )
+        );
+
+      await Promise.all(recordPromises);
+    } catch (error) {
+      console.error('Error recording duplicate relationships:', error);
+      // Don't throw error as this is not critical for report creation
+    }
+  }
+
+  /**
+   * Get duplicate reports for a given report
+   * @param {string} reportId - Report ID
+   * @returns {Promise<array>} Array of duplicate reports
+   */
+  async getDuplicateReports(reportId) {
+    try {
+      return await duplicateDetectionService.getDuplicateReports(reportId);
+    } catch (error) {
+      console.error('Error getting duplicate reports:', error);
+      return [];
+    }
   }
 
   /**
