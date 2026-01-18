@@ -1,6 +1,7 @@
 const prisma = require('../config/database');
 const { generateTicketId } = require('../utils/ticketGenerator');
 const duplicateDetectionService = require('./duplicateDetectionService');
+const workflowService = require('./workflowService');
 
 class ReportService {
   /**
@@ -413,108 +414,48 @@ class ReportService {
   }
 
   /**
-   * Update report status
+   * Update report status using workflow service
    * @param {string} reportId - Report ID
    * @param {string} newStatus - New status
    * @param {string} userId - User ID making the change
-   * @param {object} additionalData - Additional data for the update
+   * @param {string} userRole - User role
+   * @param {object} transitionData - Additional data for the transition
    * @returns {Promise<object>} Updated report
    */
-  async updateReportStatus(reportId, newStatus, userId, additionalData = {}) {
+  async updateReportStatus(reportId, newStatus, userId, userRole, transitionData = {}) {
     try {
-      const report = await this.getReportById(reportId);
-      const oldStatus = report.status;
-
-      // Validate status transition (simplified for now)
-      const validTransitions = {
-        'submitted': ['under_review', 'rejected'],
-        'under_review': ['approved', 'rejected'],
-        'approved': ['assigned'],
-        'assigned': ['in_progress'],
-        'in_progress': ['completed'],
-        'completed': ['closed', 'reopened'],
-        'closed': ['reopened'],
-        'reopened': ['assigned']
-      };
-
-      if (!validTransitions[oldStatus]?.includes(newStatus)) {
-        throw new Error(`Invalid status transition from ${oldStatus} to ${newStatus}`);
-      }
-
-      // Update report
-      const updatedReport = await prisma.report.update({
-        where: { id: reportId },
-        data: {
-          status: newStatus,
-          ...additionalData,
-          updated_at: new Date()
-        },
-        include: {
-          submitter: {
-            select: {
-              id: true,
-              email: true,
-              full_name: true,
-              role: true
-            }
-          },
-          assignee: {
-            select: {
-              id: true,
-              email: true,
-              full_name: true,
-              role: true
-            }
-          },
-          block: {
-            select: {
-              id: true,
-              block_number: true,
-              name: true
-            }
-          }
-        }
-      });
-
-      // Create workflow history entry
-      await prisma.workflowHistory.create({
-        data: {
-          report_id: reportId,
-          user_id: userId,
-          from_status: oldStatus,
-          to_status: newStatus,
-          action: this.getActionFromStatusTransition(oldStatus, newStatus),
-          notes: additionalData.notes || null
-        }
-      });
-
-      return updatedReport;
+      return await workflowService.executeTransition(reportId, newStatus, userId, userRole, transitionData);
     } catch (error) {
       throw error;
     }
   }
 
   /**
-   * Get action name from status transition
-   * @param {string} fromStatus - Previous status
-   * @param {string} toStatus - New status
-   * @returns {string} Action name
+   * Get available transitions for a report
+   * @param {string} reportId - Report ID
+   * @param {string} userRole - User role
+   * @param {string} userId - User ID
+   * @returns {Promise<array>} Available transitions
    */
-  getActionFromStatusTransition(fromStatus, toStatus) {
-    const actionMap = {
-      'submitted->under_review': 'review',
-      'under_review->approved': 'approve',
-      'under_review->rejected': 'reject',
-      'approved->assigned': 'assign',
-      'assigned->in_progress': 'start_work',
-      'in_progress->completed': 'complete',
-      'completed->closed': 'close',
-      'completed->reopened': 'reopen',
-      'closed->reopened': 'reopen',
-      'reopened->assigned': 'reassign'
-    };
+  async getAvailableTransitions(reportId, userRole, userId) {
+    try {
+      return await workflowService.getAvailableTransitions(reportId, userRole, userId);
+    } catch (error) {
+      throw error;
+    }
+  }
 
-    return actionMap[`${fromStatus}->${toStatus}`] || 'update_status';
+  /**
+   * Get workflow history for a report
+   * @param {string} reportId - Report ID
+   * @returns {Promise<array>} Workflow history
+   */
+  async getWorkflowHistory(reportId) {
+    try {
+      return await workflowService.getWorkflowHistory(reportId);
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**

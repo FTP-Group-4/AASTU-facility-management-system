@@ -53,6 +53,7 @@ const userRoutes = require('./routes/users');
 const blockRoutes = require('./routes/blocks');
 const adminRoutes = require('./routes/admin');
 const coordinatorRoutes = require('./routes/coordinators');
+const fixerRoutes = require('./routes/fixers');
 const uploadRoutes = require('./routes/uploads');
 const reportRoutes = require('./routes/reports');
 
@@ -61,7 +62,9 @@ app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/blocks', blockRoutes);
 app.use('/admin', adminRoutes);
-app.use('/coordinators', coordinatorRoutes);
+app.use('/coordinator', coordinatorRoutes);
+app.use('/coordinators', coordinatorRoutes); // Also mount under plural form for compatibility
+app.use('/fixer', fixerRoutes);
 app.use('/uploads', uploadRoutes);
 app.use('/reports', reportRoutes);
 
@@ -85,7 +88,15 @@ app.get('/api', (req, res) => {
         'PUT /users/:id - Update user (admin)',
         'GET /blocks/:number - Get block by number',
         'GET /blocks/:id/coordinators - Get block coordinators',
+        'GET /coordinator/dashboard - Coordinator dashboard',
+        'POST /coordinator/reports/:id/review - Review report (coordinator)',
+        'GET /coordinator/fixers - Get available fixers',
+        'GET /coordinator/reports - Get assigned reports',
+        'GET /coordinator/reports/pending - Get pending reports',
         'GET /coordinators/:id/blocks - Get coordinator blocks',
+        'GET /fixer/dashboard - Fixer dashboard',
+        'GET /fixer/queue - Get job queue',
+        'POST /fixer/jobs/:id/status - Update job status',
         'GET /admin/blocks - Get all blocks (admin)',
         'GET /admin/blocks/:id - Get block by ID (admin)',
         'POST /admin/blocks - Create block (admin)',
@@ -104,6 +115,9 @@ app.get('/api', (req, res) => {
         'POST /reports/check-duplicates - Check for duplicate reports',
         'GET /reports/:id - Get report by ID or ticket ID',
         'PUT /reports/:id/status - Update report status',
+        'POST /reports/:id/rate - Submit rating and feedback',
+        'GET /reports/:id/transitions - Get available transitions',
+        'GET /reports/:id/history - Get workflow history',
         'DELETE /reports/:id - Delete report (admin only)'
       ]
     }

@@ -1,4 +1,5 @@
 const reportService = require('../services/reportService');
+const workflowService = require('../services/workflowService');
 const fileService = require('../services/fileService');
 const { successResponse, errorResponse, notFoundResponse, forbiddenResponse } = require('../utils/response');
 
@@ -310,44 +311,43 @@ class ReportController {
   }
 
   /**
-   * Update report status
+   * Update report status using workflow service
    * PUT /reports/:id/status
    */
   async updateReportStatus(req, res) {
     try {
       const { id } = req.params;
-      const { status, notes, priority, assigned_to, rejection_reason } = req.body;
+      const { status, notes, priority, assigned_to, rejection_reason, completion_notes, parts_used, time_spent_minutes, rating, feedback } = req.body;
       const userId = req.user.userId;
       const userRole = req.user.role;
 
-      // Get the report first to check permissions
-      const report = await reportService.getReportById(id);
-      
-      // Check if user has permission to update this report's status
-      const canUpdate = this.checkStatusUpdatePermission(report, userId, userRole, status);
-      if (!canUpdate) {
-        return res.status(403).json(forbiddenResponse(
-          'You do not have permission to update this report status'
-        ));
-      }
+      // Prepare transition data
+      const transitionData = {};
+      if (notes) transitionData.notes = notes;
+      if (priority) transitionData.priority = priority;
+      if (assigned_to) transitionData.assigned_to = assigned_to;
+      if (rejection_reason) transitionData.rejection_reason = rejection_reason;
+      if (completion_notes) transitionData.completion_notes = completion_notes;
+      if (parts_used) transitionData.parts_used = parts_used;
+      if (time_spent_minutes) transitionData.time_spent_minutes = time_spent_minutes;
+      if (rating !== undefined) transitionData.rating = rating;
+      if (feedback) transitionData.feedback = feedback;
 
-      // Prepare additional data for the update
-      const additionalData = {};
-      if (notes) additionalData.notes = notes;
-      if (priority) additionalData.priority = priority;
-      if (assigned_to) additionalData.assigned_to = assigned_to;
-      if (rejection_reason) additionalData.rejection_reason = rejection_reason;
-
-      const updatedReport = await reportService.updateReportStatus(
+      // Use workflow service to execute the transition
+      const result = await workflowService.executeTransition(
         id, 
         status, 
         userId, 
-        additionalData
+        userRole,
+        transitionData
       );
 
       res.status(200).json(successResponse(
         'Report status updated successfully',
-        { report: updatedReport }
+        { 
+          report: result.report,
+          transition: result.transition
+        }
       ));
     } catch (error) {
       console.error('Update report status error:', error);
@@ -356,10 +356,10 @@ class ReportController {
         return res.status(404).json(notFoundResponse('Report'));
       }
 
-      if (error.message.includes('Invalid status transition')) {
+      if (error.message.includes('transition') || error.message.includes('authorized') || error.message.includes('Role')) {
         return res.status(400).json(errorResponse(
           error.message,
-          'REPORT_INVALID_STATUS_TRANSITION'
+          'WORKFLOW_ERROR'
         ));
       }
 
@@ -367,6 +367,177 @@ class ReportController {
         'Failed to update report status',
         'REPORT_STATUS_UPDATE_FAILED'
       ));
+    }
+  }
+
+  /**
+   * Get available transitions for a report
+   * GET /reports/:id/transitions
+   */
+  async getAvailableTransitions(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.userId;
+      const userRole = req.user.role;
+
+      // Get the report first to check permissions
+      const report = await reportService.getReportById(id);
+      
+      // Check access permissions
+      const hasAccess = this.checkReportAccess(report, userId, userRole);
+      if (!hasAccess) {
+        return res.status(403).json(forbiddenResponse(
+          'You do not have permission to view this report'
+        ));
+      }
+
+      // Get available transitions
+      const transitions = await workflowService.getAvailableTransitions(id, userRole, userId);
+
+      res.status(200).json(successResponse(
+        'Available transitions retrieved successfully',
+        {
+          report_id: report.id,
+          ticket_id: report.ticket_id,
+          current_status: report.status,
+          available_transitions: transitions
+        }
+      ));
+    } catch (error) {
+      console.error('Get available transitions error:', error);
+
+      if (error.message === 'Report not found') {
+        return res.status(404).json(notFoundResponse('Report'));
+      }
+
+      res.status(500).json(errorResponse(
+        'Failed to retrieve available transitions',
+        'TRANSITIONS_GET_FAILED'
+      ));
+    }
+  }
+
+  /**
+   * Get workflow history for a report
+   * GET /reports/:id/history
+   */
+  async getWorkflowHistory(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.userId;
+      const userRole = req.user.role;
+
+      // Get the report first to check permissions
+      const report = await reportService.getReportById(id);
+      
+      // Check access permissions
+      const hasAccess = this.checkReportAccess(report, userId, userRole);
+      if (!hasAccess) {
+        return res.status(403).json(forbiddenResponse(
+          'You do not have permission to view this report'
+        ));
+      }
+
+      // Get workflow history
+      const history = await workflowService.getWorkflowHistory(id);
+
+      res.status(200).json(successResponse(
+        'Workflow history retrieved successfully',
+        {
+          report_id: report.id,
+          ticket_id: report.ticket_id,
+          workflow_history: history
+        }
+      ));
+    } catch (error) {
+      console.error('Get workflow history error:', error);
+
+      if (error.message === 'Report not found') {
+        return res.status(404).json(notFoundResponse('Report'));
+      }
+
+      res.status(500).json(errorResponse(
+        'Failed to retrieve workflow history',
+        'WORKFLOW_HISTORY_GET_FAILED'
+      ));
+    }
+  }
+
+  /**
+   * Submit rating and feedback for completed report
+   * POST /reports/:id/rate
+   */
+  async rateReport(req, res) {
+    try {
+      const { id } = req.params;
+      const { rating, comment, mark_still_broken } = req.body;
+      const userId = req.user.userId;
+      const userRole = req.user.role;
+
+      // Get the report first to validate access
+      const report = await reportService.getReportById(id);
+      
+      // Only reporters can rate their own completed reports
+      if (userRole !== 'reporter' || report.submitted_by !== userId) {
+        return errorResponse(res, 'You can only rate your own completed reports', 'ACCESS_DENIED', 403);
+      }
+
+      // Check if report is completed
+      if (report.status !== 'completed') {
+        return errorResponse(res, 'You can only rate completed reports', 'INVALID_STATUS', 400);
+      }
+
+      // Determine new status based on rating
+      let newStatus = 'closed';
+      if (rating <= 1 || mark_still_broken) {
+        newStatus = 'reopened';
+      } else if (rating <= 3) {
+        newStatus = 'under_review'; // For coordinator review
+      }
+
+      // Prepare transition data
+      const transitionData = {
+        rating,
+        feedback: comment || null
+      };
+
+      // Use workflow service to execute the transition
+      const result = await workflowService.executeTransition(
+        id,
+        newStatus,
+        userId,
+        userRole,
+        transitionData
+      );
+
+      // Create appropriate message based on new status
+      let message = 'Thank you for your feedback.';
+      if (newStatus === 'reopened') {
+        message = 'Report has been reopened for further attention.';
+      } else if (newStatus === 'under_review') {
+        message = 'Thank you for your feedback. Coordinator will review.';
+      } else {
+        message = 'Thank you for your feedback. Report has been closed.';
+      }
+
+      return successResponse(res, {
+        ticket_id: result.report.ticket_id,
+        new_status: newStatus,
+        message
+      }, message);
+
+    } catch (error) {
+      console.error('Error rating report:', error);
+
+      if (error.message === 'Report not found') {
+        return errorResponse(res, 'Report not found', 'REPORT_NOT_FOUND', 404);
+      }
+
+      if (error.message.includes('transition') || error.message.includes('authorized')) {
+        return errorResponse(res, error.message, 'WORKFLOW_ERROR', 400);
+      }
+
+      return errorResponse(res, 'Failed to submit rating', 'RATING_ERROR', 500);
     }
   }
 

@@ -125,6 +125,40 @@ router.put('/:id/status',
 );
 
 /**
+ * @route   POST /reports/:id/rate
+ * @desc    Submit rating and feedback for completed report
+ * @access  Private (reporters only, own reports)
+ */
+router.post('/:id/rate',
+  authenticate,
+  validate(paramSchemas.reportId, 'params'),
+  validate(reportSchemas.rateReport, 'body'),
+  reportController.rateReport
+);
+
+/**
+ * @route   GET /reports/:id/transitions
+ * @desc    Get available workflow transitions for a report
+ * @access  Private (role-based access control)
+ */
+router.get('/:id/transitions',
+  authenticate,
+  validate(paramSchemas.reportId, 'params'),
+  reportController.getAvailableTransitions
+);
+
+/**
+ * @route   GET /reports/:id/history
+ * @desc    Get workflow history for a report
+ * @access  Private (role-based access control)
+ */
+router.get('/:id/history',
+  authenticate,
+  validate(paramSchemas.reportId, 'params'),
+  reportController.getWorkflowHistory
+);
+
+/**
  * @route   GET /reports/:id/duplicates
  * @desc    Get duplicate reports for a specific report
  * @access  Private (role-based access control)

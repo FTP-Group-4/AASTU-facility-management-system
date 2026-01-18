@@ -333,6 +333,39 @@ const reportSchemas = {
     sort_order: Joi.string()
       .valid('asc', 'desc')
       .default('desc')
+  }),
+
+  rateReport: Joi.object({
+    rating: Joi.number()
+      .integer()
+      .min(0)
+      .max(5)
+      .required()
+      .messages({
+        'number.min': 'Rating must be between 0 and 5',
+        'number.max': 'Rating must be between 0 and 5'
+      }),
+    comment: Joi.when('rating', {
+      is: Joi.number().max(3),
+      then: Joi.string()
+        .min(20)
+        .max(500)
+        .required()
+        .messages({
+          'string.min': 'Comment is required and must be at least 20 characters for ratings 0-3',
+          'string.max': 'Comment must not exceed 500 characters',
+          'any.required': 'Comment is required for ratings 0-3'
+        }),
+      otherwise: Joi.string()
+        .max(500)
+        .optional()
+        .messages({
+          'string.max': 'Comment must not exceed 500 characters'
+        })
+    }),
+    mark_still_broken: Joi.boolean()
+      .optional()
+      .default(false)
   })
 };
 
@@ -375,6 +408,91 @@ const paramSchemas = {
   })
 };
 
+// Body validation schemas
+const bodySchemas = {
+  reviewReport: Joi.object({
+    action: Joi.string()
+      .valid('approve', 'reject', 'review')
+      .required()
+      .messages({
+        'any.only': 'Action must be one of: approve, reject, review'
+      }),
+    priority: Joi.when('action', {
+      is: 'approve',
+      then: Joi.string()
+        .valid('emergency', 'high', 'medium', 'low')
+        .required()
+        .messages({
+          'any.only': 'Priority must be one of: emergency, high, medium, low',
+          'any.required': 'Priority is required when approving a report'
+        }),
+      otherwise: Joi.forbidden()
+    }),
+    rejection_reason: Joi.when('action', {
+      is: 'reject',
+      then: Joi.string()
+        .min(10)
+        .max(300)
+        .required()
+        .messages({
+          'string.min': 'Rejection reason must be at least 10 characters',
+          'string.max': 'Rejection reason must not exceed 300 characters',
+          'any.required': 'Rejection reason is required when rejecting a report'
+        }),
+      otherwise: Joi.forbidden()
+    }),
+    assigned_to: Joi.string().optional(),
+    notes: Joi.string()
+      .max(500)
+      .optional()
+      .messages({
+        'string.max': 'Notes must not exceed 500 characters'
+      })
+  }),
+
+  updateJobStatus: Joi.object({
+    status: Joi.string()
+      .valid('assigned', 'in_progress', 'completed')
+      .required()
+      .messages({
+        'any.only': 'Status must be one of: assigned, in_progress, completed'
+      }),
+    notes: Joi.when('status', {
+      is: 'completed',
+      then: Joi.string()
+        .min(10)
+        .max(500)
+        .required()
+        .messages({
+          'string.min': 'Completion notes must be at least 10 characters',
+          'string.max': 'Completion notes must not exceed 500 characters',
+          'any.required': 'Completion notes are required when completing a job'
+        }),
+      otherwise: Joi.string()
+        .max(500)
+        .optional()
+        .messages({
+          'string.max': 'Notes must not exceed 500 characters'
+        })
+    }),
+    parts_used: Joi.string()
+      .max(300)
+      .optional()
+      .messages({
+        'string.max': 'Parts used description must not exceed 300 characters'
+      }),
+    time_spent_minutes: Joi.number()
+      .integer()
+      .min(1)
+      .max(1440) // Max 24 hours
+      .optional()
+      .messages({
+        'number.min': 'Time spent must be at least 1 minute',
+        'number.max': 'Time spent must not exceed 1440 minutes (24 hours)'
+      })
+  })
+};
+
 module.exports = {
   validate,
   authSchemas,
@@ -382,5 +500,6 @@ module.exports = {
   blockSchemas,
   fileSchemas,
   reportSchemas,
-  paramSchemas
+  paramSchemas,
+  bodySchemas
 };
