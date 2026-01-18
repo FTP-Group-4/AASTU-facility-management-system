@@ -65,6 +65,8 @@ model User {
   email             String   @unique
   password_hash     String
   full_name         String
+  phone             String?
+  department        String?
   role              UserRole
   is_active         Boolean  @default(true)
   created_at        DateTime @default(now())

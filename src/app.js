@@ -47,7 +47,15 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes placeholder
+// Import routes
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+
+// API routes
+app.use('/auth', authRoutes);
+app.use('/users', userRoutes);
+
+// API info endpoint
 app.get('/api', (req, res) => {
   res.status(200).json({
     success: true,
@@ -56,11 +64,15 @@ app.get('/api', (req, res) => {
       endpoints: [
         'GET /health - Health check',
         'POST /auth/login - User authentication',
+        'POST /auth/refresh - Token refresh',
+        'POST /auth/logout - User logout',
+        'GET /auth/validate - Token validation',
         'GET /users/profile - User profile',
-        'POST /reports - Submit maintenance report',
-        'GET /coordinator/dashboard - Coordinator dashboard',
-        'GET /fixer/dashboard - Fixer dashboard',
-        'GET /admin/dashboard - Admin dashboard'
+        'PUT /users/profile - Update profile',
+        'GET /users - Get all users (admin)',
+        'POST /users - Create user (admin)',
+        'GET /users/:id - Get user by ID',
+        'PUT /users/:id - Update user (admin)'
       ]
     }
   });

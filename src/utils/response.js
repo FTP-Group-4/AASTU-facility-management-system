@@ -12,8 +12,9 @@
 const successResponse = (message, data = null, statusCode = 200) => {
   return {
     success: true,
-    message,
     data,
+    message,
+    error_code: null,
     timestamp: new Date().toISOString()
   };
 };
@@ -29,9 +30,9 @@ const successResponse = (message, data = null, statusCode = 200) => {
 const errorResponse = (message, errorCode = 'GENERAL_ERROR', data = null, statusCode = 400) => {
   return {
     success: false,
+    data,
     message,
     error_code: errorCode,
-    data,
     timestamp: new Date().toISOString()
   };
 };
