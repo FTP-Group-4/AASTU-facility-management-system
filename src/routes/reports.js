@@ -65,7 +65,7 @@ router.post('/',
     next();
   },
   validate(reportSchemas.createReport),
-  reportController.createReport
+  (req, res) => reportController.createReport(req, res)
 );
 
 /**
@@ -76,7 +76,7 @@ router.post('/',
 router.get('/my',
   authenticate,
   validate(reportSchemas.getReportsQuery, 'query'),
-  reportController.getMyReports
+  (req, res) => reportController.getMyReports(req, res)
 );
 
 /**
@@ -87,7 +87,7 @@ router.get('/my',
 router.get('/',
   authenticate,
   validate(reportSchemas.getReportsQuery, 'query'),
-  reportController.getReports
+  (req, res) => reportController.getReports(req, res)
 );
 
 /**
@@ -98,7 +98,7 @@ router.get('/',
 router.post('/check-duplicates',
   authenticate,
   validate(reportSchemas.checkDuplicates),
-  reportController.checkDuplicates
+  (req, res) => reportController.checkDuplicates(req, res)
 );
 
 /**
@@ -109,7 +109,7 @@ router.post('/check-duplicates',
 router.get('/:id',
   authenticate,
   validate(paramSchemas.reportId, 'params'),
-  reportController.getReport
+  (req, res) => reportController.getReport(req, res)
 );
 
 /**
@@ -121,7 +121,7 @@ router.put('/:id/status',
   authenticate,
   validate(paramSchemas.reportId, 'params'),
   validate(reportSchemas.updateReportStatus),
-  reportController.updateReportStatus
+  (req, res) => reportController.updateReportStatus(req, res)
 );
 
 /**
@@ -133,7 +133,29 @@ router.post('/:id/rate',
   authenticate,
   validate(paramSchemas.reportId, 'params'),
   validate(reportSchemas.rateReport, 'body'),
-  reportController.rateReport
+  (req, res) => reportController.rateReport(req, res)
+);
+
+/**
+ * @route   GET /reports/:id/completion
+ * @desc    Get completion details for a report
+ * @access  Private (role-based access control)
+ */
+router.get('/:id/completion',
+  authenticate,
+  validate(paramSchemas.reportId, 'params'),
+  (req, res) => reportController.getCompletionDetails(req, res)
+);
+
+/**
+ * @route   GET /reports/:id/can-rate
+ * @desc    Check if a report can be rated by the current user
+ * @access  Private (reporters only)
+ */
+router.get('/:id/can-rate',
+  authenticate,
+  validate(paramSchemas.reportId, 'params'),
+  (req, res) => reportController.canRateReport(req, res)
 );
 
 /**
@@ -144,7 +166,7 @@ router.post('/:id/rate',
 router.get('/:id/transitions',
   authenticate,
   validate(paramSchemas.reportId, 'params'),
-  reportController.getAvailableTransitions
+  (req, res) => reportController.getAvailableTransitions(req, res)
 );
 
 /**
@@ -155,7 +177,7 @@ router.get('/:id/transitions',
 router.get('/:id/history',
   authenticate,
   validate(paramSchemas.reportId, 'params'),
-  reportController.getWorkflowHistory
+  (req, res) => reportController.getWorkflowHistory(req, res)
 );
 
 /**
@@ -166,7 +188,7 @@ router.get('/:id/history',
 router.get('/:id/duplicates',
   authenticate,
   validate(paramSchemas.reportId, 'params'),
-  reportController.getReportDuplicates
+  (req, res) => reportController.getReportDuplicates(req, res)
 );
 
 /**
@@ -177,7 +199,7 @@ router.get('/:id/duplicates',
 router.delete('/:id',
   authenticate,
   validate(paramSchemas.reportId, 'params'),
-  reportController.deleteReport
+  (req, res) => reportController.deleteReport(req, res)
 );
 
 module.exports = router;

@@ -1,5 +1,6 @@
 const prisma = require('../config/database');
 const notificationService = require('./notificationService');
+const completionService = require('./completionService');
 
 /**
  * WorkflowService - Manages report workflow state transitions
@@ -54,11 +55,12 @@ class WorkflowService {
         }
       },
       completed: {
-        allowedTransitions: ['closed', 'reopened'],
+        allowedTransitions: ['closed', 'reopened', 'under_review'],
         requiredRoles: ['reporter', 'coordinator', 'admin'], // Reporter can rate, coordinator can close
         actions: {
           closed: 'close',
-          reopened: 'reopen'
+          reopened: 'reopen',
+          under_review: 'review_rating'
         }
       },
       closed: {
@@ -294,6 +296,19 @@ class WorkflowService {
           updateData.completion_notes = transitionData.completion_notes;
           updateData.parts_used = transitionData.parts_used || null;
           updateData.time_spent_minutes = transitionData.time_spent_minutes || null;
+          
+          // Create completion details record
+          try {
+            await completionService.createCompletionDetails(reportId, userId, {
+              completion_notes: transitionData.completion_notes,
+              parts_used: transitionData.parts_used,
+              time_spent_minutes: transitionData.time_spent_minutes,
+              completion_photos: transitionData.completion_photos || []
+            });
+          } catch (completionError) {
+            console.error('Error creating completion details:', completionError);
+            // Continue with workflow transition even if completion details fail
+          }
           break;
 
         case 'closed':

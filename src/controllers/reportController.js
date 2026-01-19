@@ -1,6 +1,7 @@
 const reportService = require('../services/reportService');
 const workflowService = require('../services/workflowService');
 const fileService = require('../services/fileService');
+const completionService = require('../services/completionService');
 const { successResponse, errorResponse, notFoundResponse, forbiddenResponse } = require('../utils/response');
 
 /**
@@ -474,73 +475,152 @@ class ReportController {
       const userId = req.user.userId;
       const userRole = req.user.role;
 
-      // Get the report first to validate access
-      const report = await reportService.getReportById(id);
-      
-      // Only reporters can rate their own completed reports
-      if (userRole !== 'reporter' || report.submitted_by !== userId) {
-        return errorResponse(res, 'You can only rate your own completed reports', 'ACCESS_DENIED', 403);
+      // Only reporters can rate reports
+      if (userRole !== 'reporter') {
+        return res.status(403).json(forbiddenResponse(
+          'Only reporters can rate reports'
+        ));
       }
 
-      // Check if report is completed
-      if (report.status !== 'completed') {
-        return errorResponse(res, 'You can only rate completed reports', 'INVALID_STATUS', 400);
-      }
-
-      // Determine new status based on rating
-      let newStatus = 'closed';
-      if (rating <= 1 || mark_still_broken) {
-        newStatus = 'reopened';
-      } else if (rating <= 3) {
-        newStatus = 'under_review'; // For coordinator review
-      }
-
-      // Prepare transition data
-      const transitionData = {
+      // Use completion service to submit rating
+      const result = await completionService.submitRating(id, userId, {
         rating,
-        feedback: comment || null
-      };
-
-      // Use workflow service to execute the transition
-      const result = await workflowService.executeTransition(
-        id,
-        newStatus,
-        userId,
-        userRole,
-        transitionData
-      );
+        comment,
+        mark_still_broken
+      });
 
       // Create appropriate message based on new status
       let message = 'Thank you for your feedback.';
-      if (newStatus === 'reopened') {
+      if (result.new_status === 'reopened') {
         message = 'Report has been reopened for further attention.';
-      } else if (newStatus === 'under_review') {
+      } else if (result.new_status === 'under_review') {
         message = 'Thank you for your feedback. Coordinator will review.';
       } else {
         message = 'Thank you for your feedback. Report has been closed.';
       }
 
-      return successResponse(res, {
-        ticket_id: result.report.ticket_id,
-        new_status: newStatus,
-        message
-      }, message);
+      res.status(200).json(successResponse(
+        message,
+        {
+          ticket_id: result.report.ticket_id,
+          new_status: result.new_status,
+          rating: rating,
+          message: message
+        }
+      ));
 
     } catch (error) {
       console.error('Error rating report:', error);
 
       if (error.message === 'Report not found') {
-        return errorResponse(res, 'Report not found', 'REPORT_NOT_FOUND', 404);
+        return res.status(404).json(notFoundResponse('Report'));
       }
 
-      if (error.message.includes('transition') || error.message.includes('authorized')) {
-        return errorResponse(res, error.message, 'WORKFLOW_ERROR', 400);
+      if (error.message.includes('You can only rate') || 
+          error.message.includes('completed reports') ||
+          error.message.includes('already been rated') ||
+          error.message.includes('Rating must be') ||
+          error.message.includes('Comment is required')) {
+        return res.status(400).json(errorResponse(
+          error.message,
+          'RATING_ERROR'
+        ));
       }
 
-      return errorResponse(res, 'Failed to submit rating', 'RATING_ERROR', 500);
+      res.status(500).json(errorResponse(
+        'Failed to submit rating',
+        'RATING_SUBMISSION_FAILED'
+      ));
     }
   }
 
+  /**
+   * Get completion details for a report
+   * GET /reports/:id/completion
+   */
+  async getCompletionDetails(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.userId;
+      const userRole = req.user.role;
+
+      // Get the report first to check permissions
+      const report = await reportService.getReportById(id);
+      
+      // Check access permissions
+      const hasAccess = this.checkReportAccess(report, userId, userRole);
+      if (!hasAccess) {
+        return res.status(403).json(forbiddenResponse(
+          'You do not have permission to view this report'
+        ));
+      }
+
+      // Get completion details
+      const completionDetails = await completionService.getCompletionDetails(id);
+
+      if (!completionDetails) {
+        return res.status(404).json(notFoundResponse('Completion details'));
+      }
+
+      res.status(200).json(successResponse(
+        'Completion details retrieved successfully',
+        {
+          report_id: report.id,
+          ticket_id: report.ticket_id,
+          completion_details: completionDetails
+        }
+      ));
+    } catch (error) {
+      console.error('Get completion details error:', error);
+
+      if (error.message === 'Report not found') {
+        return res.status(404).json(notFoundResponse('Report'));
+      }
+
+      res.status(500).json(errorResponse(
+        'Failed to retrieve completion details',
+        'COMPLETION_DETAILS_GET_FAILED'
+      ));
+    }
+  }
+
+  /**
+   * Check if a report can be rated
+   * GET /reports/:id/can-rate
+   */
+  async canRateReport(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.userId;
+      const userRole = req.user.role;
+
+      // Only reporters can rate reports
+      if (userRole !== 'reporter') {
+        return res.status(200).json(successResponse(
+          'Rating eligibility checked',
+          {
+            can_rate: false,
+            reason: 'Only reporters can rate reports'
+          }
+        ));
+      }
+
+      // Check rating eligibility
+      const eligibility = await completionService.canRateReport(id, userId);
+
+      res.status(200).json(successResponse(
+        'Rating eligibility checked',
+        eligibility
+      ));
+    } catch (error) {
+      console.error('Check rating eligibility error:', error);
+
+      res.status(500).json(errorResponse(
+        'Failed to check rating eligibility',
+        'RATING_ELIGIBILITY_CHECK_FAILED'
+      ));
+    }
+  }
   /**
    * Check for duplicate reports
    * POST /reports/check-duplicates

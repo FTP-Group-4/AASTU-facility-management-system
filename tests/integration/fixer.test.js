@@ -14,11 +14,20 @@ describe('Fixer Endpoints', () => {
   beforeAll(async () => {
     // Clean up any existing test data - use a simpler approach
     try {
+      // Delete in proper order to handle foreign key constraints
+      await prisma.$executeRaw`DELETE FROM completion_details WHERE report_id IN (SELECT id FROM reports WHERE submitted_by IN (SELECT id FROM users WHERE email LIKE '%fixertest%' OR email LIKE '%reportertest%' OR email LIKE '%coordinatortest%'))`;
+      
       // Delete workflow history for test users
       await prisma.$executeRaw`DELETE FROM workflow_history WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%fixertest%' OR email LIKE '%reportertest%' OR email LIKE '%coordinatortest%')`;
       
       // Delete notifications for test users
       await prisma.$executeRaw`DELETE FROM notifications WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%fixertest%' OR email LIKE '%reportertest%' OR email LIKE '%coordinatortest%')`;
+      
+      // Delete report photos
+      await prisma.$executeRaw`DELETE FROM report_photos WHERE report_id IN (SELECT id FROM reports WHERE submitted_by IN (SELECT id FROM users WHERE email LIKE '%fixertest%' OR email LIKE '%reportertest%' OR email LIKE '%coordinatortest%'))`;
+      
+      // Delete duplicate reports
+      await prisma.$executeRaw`DELETE FROM duplicate_reports WHERE original_report_id IN (SELECT id FROM reports WHERE submitted_by IN (SELECT id FROM users WHERE email LIKE '%fixertest%' OR email LIKE '%reportertest%' OR email LIKE '%coordinatortest%')) OR duplicate_report_id IN (SELECT id FROM reports WHERE submitted_by IN (SELECT id FROM users WHERE email LIKE '%fixertest%' OR email LIKE '%reportertest%' OR email LIKE '%coordinatortest%'))`;
       
       // Delete reports by test users
       await prisma.$executeRaw`DELETE FROM reports WHERE submitted_by IN (SELECT id FROM users WHERE email LIKE '%fixertest%' OR email LIKE '%reportertest%' OR email LIKE '%coordinatortest%')`;
@@ -113,6 +122,15 @@ describe('Fixer Endpoints', () => {
   afterAll(async () => {
     // Clean up test data - delete in correct order due to foreign key constraints
     if (testFixer && testReporter && testCoordinator) {
+      // Delete completion details first
+      await prisma.completionDetail.deleteMany({
+        where: {
+          report: {
+            submitted_by: testReporter.id
+          }
+        }
+      });
+
       await prisma.workflowHistory.deleteMany({
         where: {
           user_id: { in: [testFixer.id, testReporter.id, testCoordinator.id] }
