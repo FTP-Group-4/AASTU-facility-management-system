@@ -1,0 +1,367 @@
+﻿
+College of Engineering
+Department: Software Engineering
+Course Name: Foundations of Software Engineering
+Topic: Requirements Document for AASTU Facilities Management System
+
+Group Members                      ID Number
+1. Mikiyas Mechalo		FTP0959/15
+2. Natnael Samson	            FTP0963/15
+3. Nikodimos Hunegn      	FTP0972/15
+4. Meaza Mulatu                 	FTP0883/15
+5. Mahlet Belay            	FTP0863/15
+
+ 
+Submitted to: Dr. Hussien Seid
+Submission Date: Jan 20, 2026
+Table of Contents
+1. Introduction	1
+1.1 Purpose	1
+1.2 Scope	1
+1.3 Definitions, Acronyms, and Abbreviations	1
+1.4 References	1
+1.5 Overview	2
+2. General Description	2
+2.1 Product Perspective	2
+2.2 Product Functions	2
+2.3 User Characteristics	2
+2.4 General Constraints	3
+2.5 Assumptions and Dependencies	3
+3. Specific Requirements	3
+3.1 Functional Requirements	3
+3.2 Non-Functional Requirements	5
+3.3 Technical Requirements	6
+3.4 UX Requirement	8
+3.5 Administrative & Compliance Requirements	9
+4. Appendices	11
+5. Index	11
+
+
+
+
+
+Requirements Document for AASTU Facilities Management System
+1. Introduction
+1.1 Purpose
+This document defines the software requirements for the AASTU Facilities Management System. The system enables students, staff, maintenance teams, and administrators to efficiently report, track, and resolve campus maintenance issues across Addis Ababa Science & Technology University.
+1.2 Scope
+The system provides a web-based platform for:
+* Reporting facilities issues
+* Coordinating maintenance work
+* Tracking repair progress
+* Verifying completion
+It supports:
+* Block-based campus organization
+* Priority-based workflow routing
+* Quality assurance through mandatory feedback mechanisms
+1.3 Definitions, Acronyms, and Abbreviations
+* P1 / P2 / P3: Priority levels (Must have / Should have / Nice to have)
+* AASTU: Addis Ababa Science & Technology University
+* SLA: Service Level Agreement
+* RBAC: Role-Based Access Control
+* Coordinator: Building manager/proctor responsible for approving reports
+* Fixer: Maintenance personnel (Electrical / Mechanical)
+* Reporter: Student or staff submitting maintenance requests
+* Block: Campus building identifier (1-100)
+* UTF-8: Unicode Transformation Format 8-bit
+Appendix A: Glossary of Terms
+1.4 References
+1. IEEE 830-1998 Standard for Software Requirements Specifications
+2. Ethiopian Higher Education Facility Management Standards
+3. ISO 41001:2018 Facility Management Systems
+
+1.5 Overview
+This document follows IEEE format and includes:
+* General product description
+* Specific functional and non-functional requirements
+* Appendices
+The system prioritizes usability for diverse user groups while maintaining robust workflow management.
+2. General Description
+2.1 Product Perspective
+The AASTU Facilities Management System is a standalone web application following client-server architecture. It interfaces with AASTU email authentication systems and operates within the university's network infrastructure. The system is designed for future integration with:
+* AASTU's student information system
+* Facility asset databases
+2.2 Product Functions
+* Maintenance request submission with location specification (Block 1-100 or general location)
+* Coordinator approval workflow with priority assignment (Emergency / High / Medium / Low)
+* Maintenance team assignment and tracking (Electrical / Mechanical specialists)
+* Progress monitoring and status updates
+* Quality verification through mandatory feedback for low ratings
+* Duplicate report detection and prevention
+* Administrative management of users and building assignments
+2.3 User Characteristics
+* Students (Reporter): Undergraduate and graduate students with basic computer literacy, primarily accessing via mobile devices
+* Staff (Reporter): Academic and administrative staff with moderate technical proficiency
+* Coordinators: Building managers, dormitory proctors, and department heads requiring oversight capabilities
+* Maintenance Fixers: Electrical and mechanical technicians with varying technical skills
+* Administrators: IT staff and facility managers with advanced system management skills
+2.4 General Constraints
+* Must operate within AASTU network infrastructure
+* Must authenticate using AASTU email credentials (@aastu.edu.et)
+* Must support block-based campus organization (Blocks 1-100)
+* Must function with intermittent internet connectivity
+* Must comply with AASTU data privacy and retention policies
+* Must be accessible via mobile devices and desktop computers
+2.5 Assumptions and Dependencies
+* AASTU email system is available for authentication
+* Users have access to cameras for photo uploads
+* Campus buildings are consistently numbered (Blocks 1-100)
+* Maintenance teams have mobile or computer access during work hours
+* University network provides adequate bandwidth for photo uploads
+* Administrative support available for coordinator assignment and system management
+3. Specific Requirements
+3.1 Functional Requirements
+1. User Authentication & Roles - P1
+1.1 System shall authenticate users via AASTU email (@aastu.edu.et | @aastustudent.edu.et) and password - P1
+1.2 System shall support 5 user roles:
+* Reporter (Student/Staff): Submit and track reports
+* Coordinator (Building Manager/Proctor): Approve/reject reports for assigned locations
+* Electrical Fixer: Handle electrical/tech issues
+* Mechanical Fixer: Handle physical/structural issues
+* Admin: System configuration and assignment - P1
+1.3 Admin shall assign Coordinators to specific blocks (1-100) or "Location Not Specified" category - P1
+1.4 Multiple Coordinators can be assigned to same block - P1
+2. Block-based Location System - P1
+2.1 System shall support blocks numbered 1-100 (e.g., Block 57, Block 23) - P1
+2.2 Location input shall have two options:
+* Specific Location: Block number (1-100) → Room number
+* General Location: "Location not specified" with text description (e.g., "pathway between Block 12 and Library") - P1
+2.3 Coordinators assigned to "Location Not Specified" shall handle all general location reports - P1
+3. Report Submission Flow - P1
+3.1 Phase 1 - Reporter Submits
+3.1.1 System shall require problem category (Electrical/Mechanical) - P1
+3.1.2 System shall require location:
+* Block number selection (1-100) OR "Location not specified"
+* Room number input (if block selected)
+   * Text description (if "Location not specified") - P1
+3.1.3 System shall require equipment description (e.g., "Lab 5 computer #3", "Block 12 Room 4 light") - P1
+3.1.4 System shall require problem description (min 10 chars, max 500) - P1
+3.1.5 System shall require photo upload (min 1, max 3 photos) - P1
+3.1.6 System shall auto-generate ticket ID: AASTU-FIX-{YYYYMMDD}-{0001} - P1
+3.1.7 System shall check for duplicate reports:
+* Same block + same room + same equipment description
+* If duplicate found and status not "Completed", show warning: "Already reported - Ticket #[ID]" - P1
+3.2 Phase 2 - Coordinator Review & Prioritization
+3.2.1 Reports shall be routed to block-specific Coordinators or "Location Not Specified" Coordinators - P1
+3.2.2 Coordinators shall assign priority before approval: Emergency (2h), High (24h), Medium (72h), Low (1 week) - P1
+3.2.3 Coordinators shall have three actions: Approve with Priority, Reject (reason required), or Reviewing (48h timeout) - P1
+3.2.4 Coordinators can submit their own reports (bypasses approval) - P1
+3.3 Phase 3 - Maintenance Assignment
+3.3.1 Approved reports shall be routed to Electrical or Mechanical Fixer queues - P1
+3.3.2 Queues shall be sorted by priority, then submission time - P1
+3.4 Phase 4 - Fixing Process
+3.4.1 Fixers shall update status: Assigned → In Progress → Completed - P1
+3.4.2 Fixers shall add completion notes (what was fixed, parts used, time spent) - P1
+3.4.3 System shall notify Reporter when status is "Completed" - P1
+3.5 Phase 5 - Reporter Verification with Mandatory Feedback
+3.5.1 Reporters shall rate completed jobs (0-5 stars) - P1
+3.5.2 Mandatory comment rule: ratings 0-3 require comment (min 20 chars), ratings 4-5 optional - P1
+3.5.3 Rating consequences: 0-1 auto-reopen, 2-3 coordinator review, 4-5 auto-close - P1
+3.5.4 Reporters can mark "Still Broken" within 7 days - P1
+4. Report States & Transitions - P1
+4.1 System shall enforce state flow: Submitted → Pending Approval → Approved/Rejected/Reviewing → Assigned → In Progress → Completed → Rated → Closed/Reopened - P1
+4.2 Priority levels shall affect SLA timers and notifications - P1
+5. Coordinator Dashboard - P1
+5.1 Dashboard shall show assigned blocks and "Location Not Specified" reports - P1
+5.2 Priority assignment interface with visual indicators - P1
+5.3 Duplicate report warnings with links to original tickets - P1
+5.4 Performance metrics by block - P2
+6. Fixer Dashboard - P1
+6.1 Priority-based job list with color coding: Red (Emergency), Orange (High), Yellow (Medium), Green (Low) - P1
+6.2 SLA countdown timers for each job - P2
+7. Duplicate Detection System - P1
+7.1 Duplicate checks based on block, room, equipment, and non-completed status - P1
+7.2 Warning message: "Similar issue already reported under Ticket #[ID]" - P1
+7.3 Option to proceed with "Report Anyway" - P1
+8. Admin Management - P1
+8.1 Admin shall assign Coordinators to blocks or "Location Not Specified" - P1
+8.2 Admin shall manage block database (1-100 with building names) - P1
+8.3 Admin shall view block vs Coordinator assignment matrix - P2
+9. Notification System - P1
+9.1 Notifications: Emergency (Email), High (Email + In-app), Medium/Low (Email) - P2
+9.2 SLA violation alerts for Coordinators - P2
+10. Reporting & Analytics - P2
+10.1 Block-wise performance reports - P2
+10.2 Priority distribution analytics - P2
+10.3 Duplicate rate tracking - P3
+11. Multi-Language Support - P2
+11.1 Interface should support Amharic - P2
+11.2 Interface should support English - P2
+3.2 Non-Functional Requirements
+12. Performance - P1
+12.1 Duplicate check < 1 second - P1
+12.2 Priority sorting < 500 ms - P1
+12.3 Support 100 blocks with real-time updates - P1
+13. Data Validation - P1
+13.1 Block validation (1-100) - P1
+13.2 Room format validation (alphanumeric) - P1
+13.3 Equipment description similarity checking - P2
+14. Security - P1
+14.1 Coordinators see only assigned blocks - P1
+14.2 Fixers cannot see reporter contact info - P2
+15. Usability - P1
+15.1 Clear priority color scheme - P1
+15.2 Block autocomplete selection - P1
+15.3 Mandatory comment warning for low ratings - P1
+16. Priority SLA Timers - P2
+16.1 Emergency: 2 hours - P2
+16.2 High: 24 hours - P2
+16.3 Medium: 72 hours - P2
+16.4 Low: 1 week - P2
+17. Accessibility - P2
+17.1 Interface should support Amharic/English toggle and 16sp minimum font - P2
+3.3 Technical Requirements
+18. Platform & Deployment - P1
+18.1 System shall be deployed as a web application accessible via modern browsers - P1
+18.2 Primary interface shall be responsive web design (RWD) supporting:
+* Mobile browsers (Chrome Mobile, Safari iOS)
+* Tablet devices (minimum 768px width)
+* Desktop browsers (Chrome 80+, Firefox 75+, Safari 13+, Edge 80+) - P1
+18.3 System shall support progressive web app (PWA) features for offline functionality - P2
+19. APIs & Integration - P1
+19.1 All external communications shall use RESTful APIs with JSON payloads - P1
+19.2 System shall provide API endpoints for future integrations:
+* AASTU Student Information System (SIS) authentication
+* Asset management system
+* Email notification services - P2
+19.3 Authentication shall use AASTU email system as primary identity provider - P1
+19.4 Photo uploads shall support direct camera capture on mobile devices - P1
+20. Architecture & Hosting - P1
+20.1 System shall follow client-server architecture with cloud hosting - P1
+20.2 Application shall implement offline-first design for report submission - P1
+20.3 Critical functions shall work with intermittent connectivity:
+* Report submission with local storage
+* Photo caching for later upload
+* Status synchronization on reconnection - P1
+21. Disaster Recovery & Backup - P1
+21.1 System shall maintain daily encrypted backups at 02:00 local time - P1
+21.2 Recovery Time Objective (RTO) shall be <6 hours for critical functions - P1
+21.3 Recovery Point Objective (RPO) shall be <24 hours for report data - P1
+21.4 Backup retention policy:
+* Daily backups: 30 days
+* Weekly backups: 12 weeks
+* Monthly backups: 12 months - P2
+22. Performance Requirements - P1
+22.1 Load balancing shall distribute report submission traffic across multiple servers - P1
+22.2 System shall handle 200 concurrent report submissions during peak hours - P1
+22.3 Database response times:
+* Simple queries: <100ms
+* Complex reports: <2000ms
+* Photo retrieval: <500ms - P1
+22.4 Image processing shall be asynchronous with background queues - P2
+23. Data Privacy & Security - P1
+23.1 Personally Identifiable Information (PII) shall be masked in public reports - P1
+23.2 Photos shall be stripped of metadata (EXIF) before storage - P1
+23.3 Access logs shall record all data access with timestamp and user ID - P2
+23.4 Data retention shall comply with AASTU privacy policies:
+* Report data: 2 years minimum
+* User activity logs: 6 months
+* Backup data: As per backup policy - P2
+24. Administrative Security - P1
+24.1 Administrative accounts shall require multi-factor authentication (MFA) - P1
+24.2 Role-Based Access Control (RBAC) shall be enforced for all privileged operations - P1
+24.3 System shall maintain audit trails for:
+* User role changes
+* Coordinator assignments
+* Report status modifications
+   * Priority adjustments - P1
+24.4 Session management shall:
+* Expire after 30 minutes inactivity
+* Limit concurrent sessions to 3 per user
+* Invalidate on password change - P1
+3.4 UX Requirement
+25. Report Submission Interface - P1
+25.1 Report submission shall require minimal steps with intuitive flow - P1
+25.2 Location selection shall use type-ahead search for block numbers - P2
+25.3 Photo upload shall provide:
+* Gallery selection
+   * Live preview before submission - P1
+25.4 Form shall auto-save draft reports locally - P2
+26. Dashboard Views - P1
+26.1 Each role shall have customized dashboard views:
+* Reporter: Personal report history, status tracking
+* Coordinator: Pending approvals, building statistics
+* Fixer: Assigned jobs, priority queue
+* Admin: System metrics, user management - P1
+26.2 Dashboards shall support filtering by:
+* Date range (custom and predefined)
+* Block/location
+* Status
+* Priority level - P2
+26.3 Views shall be customizable per user preference - P3
+27. Onboarding & Help - P2
+27.1 First-time users shall see contextual onboarding tooltips - P2
+27.2 System shall provide help documentation accessible from all pages - P2
+27.3 Critical actions shall have confirmation dialogs with clear explanations - P1
+27.4 Error messages shall provide actionable guidance - P1
+28. Application Performance - P1
+28.1 Dashboard shall load within 2 seconds on 2 Mbps connection - P1
+28.2 User actions (submit, update status) shall have <1 second response time - P1
+28.3 Photo uploads shall show progress indicators - P1
+28.4 System shall implement lazy loading for report lists - P2
+29. Mobile Optimization - P1
+29.1 Interface shall be touch-friendly with adequate button sizes (min 44×44px) - P1
+29.2 System shall minimize data usage:
+* Photo compression before upload
+* Caching of frequently accessed data
+* Minimized JavaScript/CSS bundles - P2
+29.3 Offline functionality shall be clearly indicated to users - P1
+30. Accessibility & Inclusive Design - P2
+30.1 Color scheme shall meet WCAG 2.1 AA standards - P2
+30.2 Contrast ratios shall be ≥4.5:1 for normal text - P2
+30.3 Interface shall be navigable via keyboard only - P2
+30.4 All images shall have appropriate alt text - P2
+30.5 Form labels shall be properly associated with inputs - P1
+3.5 Administrative & Compliance Requirements
+31. Reporting & Documentation - P1
+31.1 System shall auto-generate maintenance completion certificates - P2
+31.2 Certificates shall include ticket ID, issue description, completion date/time, fixer information, and coordinator approval - P2
+31.3 System shall generate comprehensive reports including monthly maintenance summaries, coordinator performance metrics, fixer efficiency reports, and recurring issue analysis - P2
+32. Audit & Compliance Reports - P1
+32.1 System shall generate monthly audit reports listing priority overrides, rejected reports with reasons, SLA violations, and low-rated repairs - P2
+32.2 Reports shall flag policy violations including unapproved emergency designations, excessive rejections, and patterns of low ratings - P2
+32.3 All reports shall be exportable to PDF and Excel formats - P2
+33. Academic Calendar Integration - P3
+33.1 System shall pre-load AASTU academic calendar events - P3
+33.2 System shall adjust SLAs during examination periods, semester breaks, and university holidays - P3
+33.3 Maintenance scheduling shall consider class schedules for minimal disruption - P3
+34. Training & Support - P2
+34.1 System shall include role-specific user guides - P2
+34.2 System shall provide video tutorials for common tasks - P3
+34.3 Coordinators shall receive training materials on priority assignment guidelines - P2
+34.4 System shall include FAQ section for common issues - P2
+35. SLA Monitoring & Enforcement - P2
+35.1 System shall monitor Service Level Agreements for each priority level - P2
+35.2 Automatic escalation shall occur for missed assignment or resolution thresholds - P2
+35.3 Escalation path shall notify supervisory and facility management roles - P3
+36. Quality Assurance Metrics - P2
+36.1 System shall track first-time fix rate, average resolution time, customer satisfaction, and reopened report percentage - P2
+36.2 Quality scorecards shall be generated for fixers, coordinator teams, and buildings - P3
+37. Data Export & Integration - P2
+37.1 System shall provide data export for budgeting, asset management, and performance reviews - P2
+37.2 System shall support integration with financial, inventory, and HR systems - P3
+38. Communication Protocols - P1
+38.1 Notifications shall use standard templates with customization options - P2
+38.2 Communication channels shall include email, and in-app notifications for emergencies - P2
+38.3 Communication templates shall be customizable by administrators - P3
+Appendix B: Interaction Matrix
+ID1.11.33.14.14.24.35.16.17.118.123.124.11.1-100010000000010001000100010001.31000-10001000000010001000100010003.110001000-1000001000100010001000004.1010001000-100010001000010000004.20001000-10001000010000004.300010001000-1000010000005.1001000100010001000-100010000006.10010000001000-10000007.110001000100010001000100010001000-10001000100018.110001000100000000-10001000100023.11000100000000010001000-100024.110001000000000100010001000-Interaction Matrix Key
+- 1 = Conflict (cannot coexist)
+- 1000 = Overlap (shared functionality)
+- 0 = Independent
+
+4. Appendices
+Appendix A: Glossary of Terms	1
+Appendix B: Interaction Matrix	10
+
+5. Index
+Functional Requirements - 3.1
+Non-Functional - 3.2
+Technical - 3.3
+UX - 3.4
+Compliance - 3.5
+Appendices - 4
+
+11
+
+
