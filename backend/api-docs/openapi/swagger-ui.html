@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AASTU FMS API Documentation</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css" />
+    <style>
+        html {
+            box-sizing: border-box;
+            overflow: -moz-scrollbars-vertical;
+            overflow-y: scroll;
+        }
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+        body {
+            margin: 0;
+            background: #fafafa;
+        }
+        .swagger-ui .topbar {
+            background-color: #1f4e79;
+        }
+        .swagger-ui .topbar .download-url-wrapper .select-label {
+            color: #fff;
+        }
+        .swagger-ui .topbar .download-url-wrapper input[type=text] {
+            border: 2px solid #62a8ea;
+        }
+        .swagger-ui .info .title {
+            color: #1f4e79;
+        }
+        .custom-header {
+            background: linear-gradient(135deg, #1f4e79 0%, #2d5aa0 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .custom-header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .custom-header p {
+            margin: 10px 0 0 0;
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .quick-links {
+            background: white;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .quick-links h3 {
+            color: #1f4e79;
+            margin-top: 0;
+        }
+        .quick-links a {
+            display: inline-block;
+            margin: 5px 10px 5px 0;
+            padding: 8px 16px;
+            background: #e3f2fd;
+            color: #1565c0;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .quick-links a:hover {
+            background: #bbdefb;
+        }
+    </style>
+</head>
+<body>
+    <div class="custom-header">
+        <h1>AASTU Facilities Management System</h1>
+        <p>REST API Documentation</p>
+    </div>
+
+    <div class="quick-links">
+        <h3>Quick Links</h3>
+        <a href="../postman/AASTU-FMS.postman_collection.json" download>📦 Postman Collection</a>
+        <a href="../guides/getting-started.md">🚀 Getting Started</a>
+        <a href="../guides/authentication.md">🔐 Authentication Guide</a>
+        <a href="../guides/error-handling.md">⚠️ Error Handling</a>
+        <a href="../deployment/setup.md">🚀 Deployment Guide</a>
+        <a href="openapi.yaml" download>📄 OpenAPI Spec</a>
+    </div>
+
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.onload = function() {
+            // Build a system
+            const ui = SwaggerUIBundle({
+                url: './openapi.yaml',
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                tryItOutEnabled: true,
+                requestInterceptor: function(request) {
+                    // Add any custom headers or modifications here
+                    console.log('Request:', request);
+                    return request;
+                },
+                responseInterceptor: function(response) {
+                    // Handle responses here
+                    console.log('Response:', response);
+                    return response;
+                },
+                onComplete: function() {
+                    console.log('Swagger UI loaded successfully');
+                },
+                onFailure: function(error) {
+                    console.error('Failed to load Swagger UI:', error);
+                },
+                docExpansion: 'list',
+                apisSorter: 'alpha',
+                operationsSorter: 'alpha',
+                defaultModelsExpandDepth: 1,
+                defaultModelExpandDepth: 1,
+                defaultModelRendering: 'example',
+                displayOperationId: false,
+                displayRequestDuration: true,
+                filter: true,
+                showExtensions: true,
+                showCommonExtensions: true,
+                supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
+                validatorUrl: null
+            });
+
+            // Custom styling and functionality
+            setTimeout(function() {
+                // Add custom authentication helper
+                const authSection = document.querySelector('.auth-wrapper');
+                if (authSection) {
+                    const helpText = document.createElement('div');
+                    helpText.innerHTML = `
+                        <div style="background: #e8f4fd; padding: 15px; margin: 10px 0; border-radius: 4px; border-left: 4px solid #2196f3;">
+                            <strong>🔐 Authentication Help:</strong><br>
+                            1. First, use the <strong>POST /auth/login</strong> endpoint to get your access token<br>
+                            2. Copy the access_token from the response<br>
+                            3. Click the "Authorize" button above and enter: <code>Bearer YOUR_ACCESS_TOKEN</code><br>
+                            4. Now you can test all protected endpoints!
+                        </div>
+                    `;
+                    authSection.appendChild(helpText);
+                }
+
+                // Add environment switcher
+                const topbar = document.querySelector('.topbar');
+                if (topbar) {
+                    const envSwitcher = document.createElement('div');
+                    envSwitcher.innerHTML = `
+                        <div style="display: inline-block; margin-left: 20px;">
+                            <label style="color: white; margin-right: 10px;">Environment:</label>
+                            <select id="env-switcher" style="padding: 5px; border-radius: 4px;">
+                                <option value="https://api-fms.aastu.edu.et/v1">Production</option>
+                                <option value="https://staging-api-fms.aastu.edu.et/v1">Staging</option>
+                                <option value="http://localhost:3000">Local Development</option>
+                            </select>
+                        </div>
+                    `;
+                    topbar.appendChild(envSwitcher);
+
+                    // Handle environment switching
+                    document.getElementById('env-switcher').addEventListener('change', function(e) {
+                        const newUrl = e.target.value;
+                        // Update the servers in the spec
+                        ui.specActions.updateSpec({
+                            ...ui.getState().spec.json,
+                            servers: [{ url: newUrl, description: 'Selected Environment' }]
+                        });
+                    });
+                }
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

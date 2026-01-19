@@ -1,0 +1,876 @@
+{
+  "info": {
+    "name": "AASTU Facilities Management System API",
+    "description": "Complete API collection for the AASTU Facilities Management System. This collection includes all endpoints with proper authentication, validation, and example requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-refresh token if expired",
+          "const accessToken = pm.environment.get('access_token');",
+          "const tokenExpiry = pm.environment.get('token_expiry');",
+          "",
+          "if (!accessToken || (tokenExpiry && Date.now() > tokenExpiry)) {",
+          "    console.log('Token expired or missing, attempting refresh...');",
+          "    // This will be handled by individual requests",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://api-fms.aastu.edu.et/v1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data) {",
+                  "        pm.environment.set('access_token', response.data.access_token);",
+                  "        pm.environment.set('refresh_token', response.data.refresh_token);",
+                  "        pm.environment.set('user_id', response.data.user.id);",
+                  "        pm.environment.set('user_role', response.data.user.role);",
+                  "        ",
+                  "        // Set token expiry (1 hour from now)",
+                  "        const expiryTime = Date.now() + (response.data.expires_in * 1000);",
+                  "        pm.environment.set('token_expiry', expiryTime);",
+                  "        ",
+                  "        pm.test('Login successful', function () {",
+                  "            pm.expect(response.success).to.be.true;",
+                  "            pm.expect(response.data.access_token).to.be.a('string');",
+                  "        });",
+                  "    }",
+                  "} else {",
+                  "    pm.test('Login failed', function () {",
+                  "        pm.expect(pm.response.code).to.be.oneOf([400, 401]);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"device_id\": \"postman-client\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticate user with AASTU email and password. Sets access_token and refresh_token in environment variables."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data) {",
+                  "        pm.environment.set('access_token', response.data.access_token);",
+                  "        pm.environment.set('refresh_token', response.data.refresh_token);",
+                  "        ",
+                  "        const expiryTime = Date.now() + (response.data.expires_in * 1000);",
+                  "        pm.environment.set('token_expiry', expiryTime);",
+                  "        ",
+                  "        pm.test('Token refreshed successfully', function () {",
+                  "            pm.expect(response.success).to.be.true;",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{refresh_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Refresh access token using refresh token"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logout user and invalidate tokens"
+          }
+        }
+      ],
+      "description": "Authentication endpoints for login, token refresh, and logout"
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "Get current user's profile information"
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Updated Name\",\n  \"phone\": \"+251911223344\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "Update current user's profile information"
+          }
+        }
+      ],
+      "description": "User profile management endpoints"
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Submit Report",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data) {",
+                  "        pm.environment.set('last_ticket_id', response.data.ticket_id);",
+                  "        pm.test('Report submitted successfully', function () {",
+                  "            pm.expect(response.data.ticket_id).to.match(/^AASTU-FIX-\\d{8}-\\d{4}$/);",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"electrical\",\n  \"location\": {\n    \"type\": \"specific\",\n    \"block_id\": 57,\n    \"room_number\": \"201\"\n  },\n  \"equipment_description\": \"Projector in classroom 201\",\n  \"problem_description\": \"Projector won't turn on. No power light when button pressed. This has been an ongoing issue for the past week.\",\n  \"photos\": [\n    \"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/reports",
+              "host": ["{{base_url}}"],
+              "path": ["reports"]
+            },
+            "description": "Submit a new maintenance report with photos"
+          }
+        },
+        {
+          "name": "Get My Reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/my?limit=10&page=1",
+              "host": ["{{base_url}}"],
+              "path": ["reports", "my"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "status",
+                  "value": "submitted",
+                  "disabled": true
+                },
+                {
+                  "key": "priority",
+                  "value": "high",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get reports submitted by current user with optional filters"
+          }
+        },
+        {
+          "name": "Get Report Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/{{last_ticket_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["reports", "{{last_ticket_id}}"]
+            },
+            "description": "Get detailed information about a specific report"
+          }
+        },
+        {
+          "name": "Rate Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"The fix was done quickly and professionally. Very satisfied with the service.\",\n  \"mark_still_broken\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/reports/{{last_ticket_id}}/rate",
+              "host": ["{{base_url}}"],
+              "path": ["reports", "{{last_ticket_id}}", "rate"]
+            },
+            "description": "Submit rating and feedback for completed report"
+          }
+        }
+      ],
+      "description": "Report management endpoints for submission, tracking, and rating"
+    },
+    {
+      "name": "Coordinator",
+      "item": [
+        {
+          "name": "Get Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/coordinator/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["coordinator", "dashboard"]
+            },
+            "description": "Get coordinator dashboard with pending reports and statistics"
+          }
+        },
+        {
+          "name": "Review Report - Approve",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\",\n  \"priority\": \"high\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/coordinator/reports/{{last_ticket_id}}/review",
+              "host": ["{{base_url}}"],
+              "path": ["coordinator", "reports", "{{last_ticket_id}}", "review"]
+            },
+            "description": "Approve a report with priority assignment"
+          }
+        },
+        {
+          "name": "Review Report - Reject",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"reject\",\n  \"rejection_reason\": \"This is not a maintenance issue. Please contact IT support directly.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/coordinator/reports/{{last_ticket_id}}/review",
+              "host": ["{{base_url}}"],
+              "path": ["coordinator", "reports", "{{last_ticket_id}}", "review"]
+            },
+            "description": "Reject a report with reason"
+          }
+        },
+        {
+          "name": "Get Assigned Reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/coordinator/reports?status=pending_approval&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["coordinator", "reports"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending_approval"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "block_id",
+                  "value": "57",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get reports assigned to coordinator with filters"
+          }
+        }
+      ],
+      "description": "Coordinator-specific endpoints for report review and approval"
+    },
+    {
+      "name": "Fixer",
+      "item": [
+        {
+          "name": "Get Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/fixer/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["fixer", "dashboard"]
+            },
+            "description": "Get fixer dashboard with assigned jobs and statistics"
+          }
+        },
+        {
+          "name": "Get Job Queue",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/fixer/queue?priority=emergency",
+              "host": ["{{base_url}}"],
+              "path": ["fixer", "queue"],
+              "query": [
+                {
+                  "key": "priority",
+                  "value": "emergency",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get priority-sorted job queue for fixer"
+          }
+        },
+        {
+          "name": "Update Job Status - In Progress",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"notes\": \"Started working on the projector. Checking power connections.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/fixer/jobs/{{last_ticket_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["fixer", "jobs", "{{last_ticket_id}}", "status"]
+            },
+            "description": "Update job status to in progress"
+          }
+        },
+        {
+          "name": "Update Job Status - Completed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\",\n  \"notes\": \"Replaced faulty power cable and tested projector. Working properly now.\",\n  \"parts_used\": [\n    {\n      \"name\": \"Power Cable - Type A\",\n      \"quantity\": 1\n    }\n  ],\n  \"time_spent_minutes\": 45\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/fixer/jobs/{{last_ticket_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["fixer", "jobs", "{{last_ticket_id}}", "status"]
+            },
+            "description": "Complete a job with details and parts used"
+          }
+        }
+      ],
+      "description": "Fixer-specific endpoints for job management and status updates"
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Get Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "dashboard"]
+            },
+            "description": "Get admin dashboard with system statistics and alerts"
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newcoordinator@aastu.edu.et\",\n  \"role\": \"coordinator\",\n  \"full_name\": \"New Coordinator\",\n  \"assigned_blocks\": [57, 58],\n  \"location_not_specified\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users"]
+            },
+            "description": "Create a new user account"
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"electrical_fixer\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "{{user_id}}"]
+            },
+            "description": "Update user role and status"
+          }
+        },
+        {
+          "name": "Get Assignment Matrix",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/assignments",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "assignments"]
+            },
+            "description": "Get block-coordinator assignment matrix"
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"electrical_fixer\",\n  \"is_active\": true,\n  \"permissions\": [\"job:view_electrical\", \"job:update_status\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "{{user_id}}"]
+            },
+            "description": "Update user role and permissions"
+          }
+        },
+        {
+          "name": "Create Block",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"block_number\": 101,\n  \"name\": \"New Science Building\",\n  \"description\": \"Newly constructed science facility\",\n  \"floors\": 5,\n  \"coordinator_ids\": [\"{{user_id}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/blocks",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "blocks"]
+            },
+            "description": "Create a new building block"
+          }
+        },
+        {
+          "name": "Update System Configuration",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sla_settings\": {\n    \"emergency_hours\": 2,\n    \"high_hours\": 24,\n    \"medium_hours\": 72,\n    \"low_hours\": 168\n  },\n  \"notification_settings\": {\n    \"emergency_notify_coordinator\": true,\n    \"sla_warning_threshold\": 0.8\n  },\n  \"duplicate_detection\": {\n    \"similarity_threshold\": 0.85,\n    \"check_days\": 7\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/config",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "config"]
+            },
+            "description": "Update system-wide configuration settings"
+          }
+        }
+      ],
+      "description": "Administrative endpoints for user management and system configuration"
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications?unread_only=true&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"],
+              "query": [
+                {
+                  "key": "unread_only",
+                  "value": "true"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "type",
+                  "value": "alert",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get user notifications with optional filters"
+          }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/NOTIF-001/read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "NOTIF-001", "read"]
+            },
+            "description": "Mark a specific notification as read"
+          }
+        }
+      ],
+      "description": "Notification management endpoints"
+    },
+    {
+      "name": "Uploads",
+      "item": [
+        {
+          "name": "Upload Photos",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photos",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/uploads/photos",
+              "host": ["{{base_url}}"],
+              "path": ["uploads", "photos"]
+            },
+            "description": "Upload photos for reports (max 3 photos, 5MB each)"
+          }
+        },
+        {
+          "name": "Get Upload Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/uploads/config",
+              "host": ["{{base_url}}"],
+              "path": ["uploads", "config"]
+            },
+            "description": "Get upload configuration and limits"
+          }
+        }
+      ],
+      "description": "File upload endpoints for photos and documents"
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Get Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics?period=month&metric=completion_rate",
+              "host": ["{{base_url}}"],
+              "path": ["analytics"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                },
+                {
+                  "key": "metric",
+                  "value": "completion_rate"
+                },
+                {
+                  "key": "block_id",
+                  "value": "57",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get system analytics and performance metrics"
+          }
+        }
+      ],
+      "description": "Analytics and reporting endpoints"
+    },
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check system health status"
+          }
+        },
+        {
+          "name": "Get System Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics/system/status",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "system", "status"]
+            },
+            "description": "Get real-time system health and status"
+          }
+        },
+        {
+          "name": "Get Block Performance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics/blocks/57/performance?period=month",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "blocks", "57", "performance"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                }
+              ]
+            },
+            "description": "Get detailed performance metrics for a specific block"
+          }
+        }
+      ],
+      "description": "System health and analytics endpoints"
+    },
+    {
+      "name": "Sync",
+      "item": [
+        {
+          "name": "Sync Offline Reports",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pending_reports\": [\n    {\n      \"local_id\": \"local-123\",\n      \"category\": \"electrical\",\n      \"location\": {\n        \"type\": \"specific\",\n        \"block_id\": 57,\n        \"room_number\": \"201\"\n      },\n      \"equipment_description\": \"Classroom projector\",\n      \"problem_description\": \"Projector not turning on, checked power cable\",\n      \"photos\": [],\n      \"created_at\": \"2024-01-20T10:30:00Z\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/sync/reports",
+              "host": ["{{base_url}}"],
+              "path": ["sync", "reports"]
+            },
+            "description": "Synchronize reports created while offline"
+          }
+        }
+      ],
+      "description": "Offline synchronization support"
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Webhook Event Handler",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"report.completed\",\n  \"data\": {\n    \"ticket_id\": \"AASTU-FIX-20240320-0045\",\n    \"completed_at\": \"2024-03-20T14:30:00Z\",\n    \"fixer_id\": \"USR-2024-00125\",\n    \"rating\": 4\n  },\n  \"timestamp\": \"2024-03-20T14:30:00Z\",\n  \"source\": \"external-system\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/events",
+              "host": ["{{base_url}}"],
+              "path": ["webhooks", "events"]
+            },
+            "description": "Handle incoming webhook events"
+          }
+        }
+      ],
+      "description": "Webhook event handling"
+    }
+  ]
+}

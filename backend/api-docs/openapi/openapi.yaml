@@ -1,0 +1,2209 @@
+openapi: 3.0.3
+info:
+  title: AASTU Facilities Management System API
+  description: |
+    REST API for the AASTU Facilities Management System. This API enables students, staff, 
+    maintenance teams, and administrators to efficiently report, track, and resolve campus 
+    maintenance issues across Addis Ababa Science & Technology University.
+    
+    ## Features
+    - JWT-based authentication with role-based access control
+    - Complete report lifecycle management
+    - Photo upload support
+    - Duplicate detection system
+    - Real-time notifications
+    - Analytics and reporting
+    
+    ## User Roles
+    - **Reporter**: Submit and track reports
+    - **Coordinator**: Review and approve reports for assigned blocks
+    - **Fixer**: Handle assigned maintenance tasks (Electrical/Mechanical)
+    - **Admin**: System configuration and user management
+  version: 1.0.0
+  contact:
+    name: AASTU FMS API Support
+    email: support@aastu.edu.et
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api-fms.aastu.edu.et/v1
+    description: Production server
+  - url: https://staging-api-fms.aastu.edu.et/v1
+    description: Staging server
+  - url: http://localhost:3000
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # Authentication Endpoints
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with AASTU email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@aastu.edu.et"
+                  description: "AASTU email address"
+                password:
+                  type: string
+                  format: password
+                  example: "password123"
+                  description: "User password"
+                device_id:
+                  type: string
+                  example: "mobile-12345"
+                  description: "Optional device identifier"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          access_token:
+                            type: string
+                            description: "JWT access token"
+                          refresh_token:
+                            type: string
+                            description: "JWT refresh token"
+                          token_type:
+                            type: string
+                            example: "bearer"
+                          expires_in:
+                            type: integer
+                            example: 3600
+                            description: "Token expiration time in seconds"
+                          user:
+                            $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get new access token using refresh token
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          access_token:
+                            type: string
+                          refresh_token:
+                            type: string
+                          token_type:
+                            type: string
+                            example: "bearer"
+                          expires_in:
+                            type: integer
+                            example: 3600
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate access and refresh tokens
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # User Management Endpoints
+  /users/profile:
+    get:
+      tags:
+        - Users
+      summary: Get user profile
+      description: Get current user's profile information
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags:
+        - Users
+      summary: Update user profile
+      description: Update current user's profile information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                  example: "John Doe"
+                phone:
+                  type: string
+                  example: "+251911223344"
+                avatar:
+                  type: string
+                  format: base64
+                  description: "Base64 encoded image (optional)"
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Report Endpoints
+  /reports:
+    post:
+      tags:
+        - Reports
+      summary: Submit new report
+      description: Submit a new maintenance report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportSubmission'
+      responses:
+        '201':
+          description: Report submitted successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          ticket_id:
+                            type: string
+                            example: "AASTU-FIX-20240320-0045"
+                          status:
+                            type: string
+                            example: "submitted"
+                          submitted_at:
+                            type: string
+                            format: date-time
+                          coordinator_assigned:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              email:
+                                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Duplicate report detected
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      data:
+                        type: object
+                        properties:
+                          duplicate_ticket_id:
+                            type: string
+                            example: "AASTU-FIX-20240320-0043"
+                          duplicate_status:
+                            type: string
+                            example: "in_progress"
+                      error_code:
+                        type: string
+                        example: "REPORT_001"
+
+  /reports/my:
+    get:
+      tags:
+        - Reports
+      summary: Get my reports
+      description: Get reports submitted by current user
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [submitted, pending_approval, approved, assigned, in_progress, completed, closed, rejected]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [emergency, high, medium, low]
+        - name: block_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Reports retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          reports:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ReportSummary'
+                          summary:
+                            type: object
+                            properties:
+                              total:
+                                type: integer
+                              pending:
+                                type: integer
+                              in_progress:
+                                type: integer
+                              completed:
+                                type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /reports/{ticket_id}:
+    get:
+      tags:
+        - Reports
+      summary: Get report details
+      description: Get detailed information about a specific report
+      parameters:
+        - name: ticket_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "AASTU-FIX-20240320-0045"
+      responses:
+        '200':
+          description: Report details retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ReportDetails'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /reports/{ticket_id}/rate:
+    post:
+      tags:
+        - Reports
+      summary: Rate completed report
+      description: Submit rating and feedback for completed report
+      parameters:
+        - name: ticket_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rating
+              properties:
+                rating:
+                  type: integer
+                  minimum: 0
+                  maximum: 5
+                  example: 4
+                comment:
+                  type: string
+                  minLength: 20
+                  example: "The fix was done quickly and professionally"
+                  description: "Required for ratings 0-3"
+                mark_still_broken:
+                  type: boolean
+                  example: false
+                  description: "Mark if issue is still not resolved"
+      responses:
+        '200':
+          description: Rating submitted successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          ticket_id:
+                            type: string
+                          new_status:
+                            type: string
+                            enum: [closed, reopened, under_review]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Coordinator Endpoints
+  /coordinator/dashboard:
+    get:
+      tags:
+        - Coordinator
+      summary: Get coordinator dashboard
+      description: Get dashboard data for coordinator
+      responses:
+        '200':
+          description: Dashboard data retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CoordinatorDashboard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /coordinator/reports/{ticket_id}/review:
+    post:
+      tags:
+        - Coordinator
+      summary: Review report
+      description: Approve, reject, or mark report as reviewing
+      parameters:
+        - name: ticket_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [approve, reject, reviewing]
+                priority:
+                  type: string
+                  enum: [emergency, high, medium, low]
+                  description: "Required if action is 'approve'"
+                rejection_reason:
+                  type: string
+                  description: "Required if action is 'reject'"
+      responses:
+        '200':
+          description: Review action completed successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          ticket_id:
+                            type: string
+                          new_status:
+                            type: string
+                          priority:
+                            type: string
+                          sla_deadline:
+                            type: string
+                            format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Fixer Endpoints
+  /fixer/dashboard:
+    get:
+      tags:
+        - Fixer
+      summary: Get fixer dashboard
+      description: Get dashboard data for fixer
+      responses:
+        '200':
+          description: Dashboard data retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/FixerDashboard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /fixer/jobs/{ticket_id}/status:
+    post:
+      tags:
+        - Fixer
+      summary: Update job status
+      description: Update status of assigned job
+      parameters:
+        - name: ticket_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [assigned, in_progress, completed]
+                notes:
+                  type: string
+                  description: "Required for completion"
+                parts_used:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      quantity:
+                        type: integer
+                time_spent_minutes:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: Status updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          ticket_id:
+                            type: string
+                          new_status:
+                            type: string
+                          notified_reporter:
+                            type: boolean
+                          completion_certificate_id:
+                            type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Admin Endpoints
+  /admin/dashboard:
+    get:
+      tags:
+        - Admin
+      summary: Get admin dashboard
+      description: Get system dashboard data for admin
+      responses:
+        '200':
+          description: Dashboard data retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AdminDashboard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/users:
+    post:
+      tags:
+        - Admin
+      summary: Create user
+      description: Create a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - role
+                - full_name
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "newuser@aastu.edu.et"
+                role:
+                  type: string
+                  enum: [reporter, coordinator, electrical_fixer, mechanical_fixer, admin]
+                full_name:
+                  type: string
+                  example: "New User"
+                assigned_blocks:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  description: "Required for coordinator role"
+                location_not_specified:
+                  type: boolean
+                  description: "For coordinators handling general location reports"
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/users/{user_id}:
+    put:
+      tags:
+        - Admin
+      summary: Update user
+      description: Update user role and permissions
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "USR-2024-00123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [reporter, coordinator, electrical_fixer, mechanical_fixer, admin]
+                is_active:
+                  type: boolean
+                permissions:
+                  type: array
+                  items:
+                    type: string
+                assigned_blocks:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                location_not_specified:
+                  type: boolean
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/blocks:
+    post:
+      tags:
+        - Admin
+      summary: Create block
+      description: Create a new building block
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - block_number
+                - name
+              properties:
+                block_number:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  example: 101
+                name:
+                  type: string
+                  example: "New Science Building"
+                description:
+                  type: string
+                  example: "Newly constructed science facility"
+                floors:
+                  type: integer
+                  example: 5
+                coordinator_ids:
+                  type: array
+                  items:
+                    type: string
+                  example: ["USR-2024-00124"]
+      responses:
+        '201':
+          description: Block created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          block_id:
+                            type: integer
+                          block_number:
+                            type: integer
+                          name:
+                            type: string
+                          description:
+                            type: string
+                          floors:
+                            type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/assignments:
+    get:
+      tags:
+        - Admin
+      summary: Get assignment matrix
+      description: Get block-coordinator assignment matrix
+      responses:
+        '200':
+          description: Assignment matrix retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          matrix:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                block_id:
+                                  type: integer
+                                block_name:
+                                  type: string
+                                coordinators:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        type: string
+                                      name:
+                                        type: string
+                                      email:
+                                        type: string
+                                      is_primary:
+                                        type: boolean
+                                report_count:
+                                  type: integer
+                          unassigned_blocks:
+                            type: array
+                            items:
+                              type: integer
+                          location_not_specified_coordinators:
+                            type: array
+                            items:
+                              type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/reports/generate:
+    post:
+      tags:
+        - Admin
+      summary: Generate system report
+      description: Generate performance, compliance, or analytics reports
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - report_type
+                - date_range
+                - format
+              properties:
+                report_type:
+                  type: string
+                  enum: [performance, compliance, analytics]
+                  example: "performance"
+                date_range:
+                  type: object
+                  required:
+                    - from
+                    - to
+                  properties:
+                    from:
+                      type: string
+                      format: date
+                      example: "2024-03-01"
+                    to:
+                      type: string
+                      format: date
+                      example: "2024-03-31"
+                filters:
+                  type: object
+                  properties:
+                    block_ids:
+                      type: array
+                      items:
+                        type: integer
+                    categories:
+                      type: array
+                      items:
+                        type: string
+                        enum: [electrical, mechanical]
+                    priority_levels:
+                      type: array
+                      items:
+                        type: string
+                        enum: [emergency, high, medium, low]
+                format:
+                  type: string
+                  enum: [pdf, excel, json]
+                  example: "pdf"
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          report_id:
+                            type: string
+                          download_url:
+                            type: string
+                          expires_at:
+                            type: string
+                            format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/config:
+    put:
+      tags:
+        - Admin
+      summary: Update system configuration
+      description: Update system-wide configuration settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sla_settings:
+                  type: object
+                  properties:
+                    emergency_hours:
+                      type: integer
+                      example: 2
+                    high_hours:
+                      type: integer
+                      example: 24
+                    medium_hours:
+                      type: integer
+                      example: 72
+                    low_hours:
+                      type: integer
+                      example: 168
+                notification_settings:
+                  type: object
+                  properties:
+                    emergency_notify_coordinator:
+                      type: boolean
+                      example: true
+                    sla_warning_threshold:
+                      type: number
+                      format: float
+                      example: 0.8
+                duplicate_detection:
+                  type: object
+                  properties:
+                    similarity_threshold:
+                      type: number
+                      format: float
+                      example: 0.85
+                    check_days:
+                      type: integer
+                      example: 7
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Notification Endpoints
+  /notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get notifications
+      description: Get user notifications
+      parameters:
+        - name: unread_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, alert]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          notifications:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Notification'
+                          unread_count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notifications/{notification_id}/read:
+    post:
+      tags:
+        - Notifications
+      summary: Mark notification as read
+      description: Mark a specific notification as read
+      parameters:
+        - name: notification_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # File Upload Endpoints
+  /uploads/photos:
+    post:
+      tags:
+        - Uploads
+      summary: Upload photos
+      description: Upload photos for reports
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photos:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  maxItems: 3
+                  description: "Maximum 3 photos, 5MB each"
+      responses:
+        '200':
+          description: Photos uploaded successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          photos:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                url:
+                                  type: string
+                                thumbnail_url:
+                                  type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /uploads/config:
+    get:
+      tags:
+        - Uploads
+      summary: Get upload configuration
+      description: Get upload limits and allowed file types
+      security: []
+      responses:
+        '200':
+          description: Upload configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          max_file_size:
+                            type: integer
+                            example: 5242880
+                            description: "Maximum file size in bytes"
+                          max_files:
+                            type: integer
+                            example: 3
+                            description: "Maximum number of files per upload"
+                          allowed_types:
+                            type: array
+                            items:
+                              type: string
+                            example: ["image/jpeg", "image/png", "image/webp"]
+                          supported_formats:
+                            type: array
+                            items:
+                              type: string
+                            example: [".jpg", ".jpeg", ".png", ".webp"]
+
+  /uploads/photos/{filename}:
+    get:
+      tags:
+        - Uploads
+      summary: Get uploaded photo
+      description: Retrieve an uploaded photo file
+      security: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "photo_123456.jpg"
+      responses:
+        '200':
+          description: Photo file
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Analytics Endpoints
+  /analytics:
+    get:
+      tags:
+        - Analytics
+      summary: Get system analytics
+      description: Get comprehensive system analytics and performance metrics
+      parameters:
+        - name: block_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, quarter, year]
+            default: month
+        - name: metric
+          in: query
+          schema:
+            type: string
+            enum: [completion_rate, avg_time, rating, duplicate_rate]
+      responses:
+        '200':
+          description: Analytics data retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          block_performance:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                block_id:
+                                  type: integer
+                                block_name:
+                                  type: string
+                                metrics:
+                                  type: object
+                                  properties:
+                                    total_reports:
+                                      type: integer
+                                    completion_rate:
+                                      type: number
+                                      format: float
+                                    avg_completion_time_hours:
+                                      type: number
+                                      format: float
+                                    avg_rating:
+                                      type: number
+                                      format: float
+                                    duplicate_rate:
+                                      type: number
+                                      format: float
+                          priority_distribution:
+                            type: object
+                            properties:
+                              emergency:
+                                type: integer
+                              high:
+                                type: integer
+                              medium:
+                                type: integer
+                              low:
+                                type: integer
+                          trends:
+                            type: object
+                            properties:
+                              reports_last_7_days:
+                                type: array
+                                items:
+                                  type: integer
+                              completion_rate_trend:
+                                type: array
+                                items:
+                                  type: number
+                                  format: float
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /analytics/system/status:
+    get:
+      tags:
+        - Analytics
+      summary: Get system status
+      description: Get real-time system health and status information
+      responses:
+        '200':
+          description: System status retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            enum: [healthy, degraded, unhealthy]
+                          uptime:
+                            type: string
+                            example: "99.8%"
+                          response_time:
+                            type: string
+                            example: "125ms"
+                          active_connections:
+                            type: integer
+                          database_status:
+                            type: string
+                            enum: [connected, disconnected, error]
+                          redis_status:
+                            type: string
+                            enum: [connected, disconnected, error]
+                          last_backup:
+                            type: string
+                            format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /analytics/blocks/{block_id}/performance:
+    get:
+      tags:
+        - Analytics
+      summary: Get block performance
+      description: Get detailed performance metrics for a specific block
+      parameters:
+        - name: block_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, quarter, year]
+            default: month
+      responses:
+        '200':
+          description: Block performance data retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          block_info:
+                            type: object
+                            properties:
+                              block_id:
+                                type: integer
+                              block_name:
+                                type: string
+                              coordinators:
+                                type: array
+                                items:
+                                  type: string
+                          metrics:
+                            type: object
+                            properties:
+                              total_reports:
+                                type: integer
+                              completion_rate:
+                                type: number
+                                format: float
+                              avg_resolution_time:
+                                type: number
+                                format: float
+                              avg_rating:
+                                type: number
+                                format: float
+                              sla_compliance:
+                                type: number
+                                format: float
+                          category_breakdown:
+                            type: object
+                            properties:
+                              electrical:
+                                type: integer
+                              mechanical:
+                                type: integer
+                          priority_breakdown:
+                            type: object
+                            properties:
+                              emergency:
+                                type: integer
+                              high:
+                                type: integer
+                              medium:
+                                type: integer
+                              low:
+                                type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Sync Endpoints (Offline Support)
+  /sync/reports:
+    post:
+      tags:
+        - Sync
+      summary: Sync offline reports
+      description: Synchronize reports created while offline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pending_reports
+              properties:
+                pending_reports:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - local_id
+                      - category
+                      - location
+                      - equipment_description
+                      - problem_description
+                      - created_at
+                    properties:
+                      local_id:
+                        type: string
+                        example: "local-123"
+                      category:
+                        type: string
+                        enum: [electrical, mechanical]
+                      location:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum: [specific, general]
+                          block_id:
+                            type: integer
+                          room_number:
+                            type: string
+                          description:
+                            type: string
+                      equipment_description:
+                        type: string
+                      problem_description:
+                        type: string
+                      photos:
+                        type: array
+                        items:
+                          type: string
+                          format: base64
+                      created_at:
+                        type: string
+                        format: date-time
+      responses:
+        '200':
+          description: Reports synchronized successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          synced_reports:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                local_id:
+                                  type: string
+                                ticket_id:
+                                  type: string
+                                status:
+                                  type: string
+                          failed_reports:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                local_id:
+                                  type: string
+                                error:
+                                  type: string
+                          pending_updates:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                ticket_id:
+                                  type: string
+                                status:
+                                  type: string
+                                updated_at:
+                                  type: string
+                                  format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Webhook Endpoints
+  /webhooks/events:
+    post:
+      tags:
+        - Webhooks
+      summary: Webhook event handler
+      description: Handle incoming webhook events from external systems
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event
+                - data
+              properties:
+                event:
+                  type: string
+                  example: "report.completed"
+                  description: "Event type identifier"
+                data:
+                  type: object
+                  description: "Event-specific data payload"
+                  example:
+                    ticket_id: "AASTU-FIX-20240320-0045"
+                    completed_at: "2024-03-20T14:30:00Z"
+                    fixer_id: "USR-2024-00125"
+                    rating: 4
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: "Event timestamp"
+                source:
+                  type: string
+                  example: "external-system"
+                  description: "Event source identifier"
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          processed:
+                            type: boolean
+                          event_id:
+                            type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # Health Check Endpoint
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Get system health status
+      security: []
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: integer
+                    description: "Uptime in seconds"
+                  database:
+                    type: string
+                    enum: [connected, disconnected]
+                  redis:
+                    type: string
+                    enum: [connected, disconnected]
+                  version:
+                    type: string
+                    example: "1.0.0"
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "unhealthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  errors:
+                    type: array
+                    items:
+                      type: string
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-20T10:30:00Z"
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        data:
+          type: object
+          nullable: true
+          example: null
+        message:
+          type: string
+          example: "An error occurred"
+        error_code:
+          type: string
+          example: "ERROR_001"
+        timestamp:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "USR-2024-00123"
+        email:
+          type: string
+          format: email
+          example: "user@aastu.edu.et"
+        role:
+          type: string
+          enum: [reporter, coordinator, electrical_fixer, mechanical_fixer, admin]
+        full_name:
+          type: string
+          example: "John Doe"
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["report:create", "report:view_own"]
+
+    UserProfile:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            phone:
+              type: string
+              example: "+251911223344"
+            department:
+              type: string
+              example: "Computer Science"
+            created_at:
+              type: string
+              format: date-time
+            stats:
+              type: object
+              properties:
+                reports_submitted:
+                  type: integer
+                reports_pending:
+                  type: integer
+                avg_rating_given:
+                  type: number
+                  format: float
+
+    ReportSubmission:
+      type: object
+      required:
+        - category
+        - location
+        - equipment_description
+        - problem_description
+        - photos
+      properties:
+        category:
+          type: string
+          enum: [electrical, mechanical]
+        location:
+          type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [specific, general]
+            block_id:
+              type: integer
+              minimum: 1
+              maximum: 100
+              description: "Required if type is 'specific'"
+            room_number:
+              type: string
+              example: "201"
+            description:
+              type: string
+              example: "Pathway between Block 12 and Library"
+              description: "Required if type is 'general'"
+        equipment_description:
+          type: string
+          example: "Lab computer #5 in row 3"
+          minLength: 5
+          maxLength: 200
+        problem_description:
+          type: string
+          example: "Computer won't turn on. No power light."
+          minLength: 10
+          maxLength: 500
+        photos:
+          type: array
+          items:
+            type: string
+            format: base64
+          minItems: 1
+          maxItems: 3
+
+    ReportSummary:
+      type: object
+      properties:
+        ticket_id:
+          type: string
+          example: "AASTU-FIX-20240320-0045"
+        category:
+          type: string
+          enum: [electrical, mechanical]
+        location:
+          type: object
+          properties:
+            block_id:
+              type: integer
+            block_name:
+              type: string
+            room_number:
+              type: string
+        problem_summary:
+          type: string
+        status:
+          type: string
+          enum: [submitted, pending_approval, approved, assigned, in_progress, completed, closed, rejected]
+        priority:
+          type: string
+          enum: [emergency, high, medium, low]
+        submitted_at:
+          type: string
+          format: date-time
+        sla_deadline:
+          type: string
+          format: date-time
+        current_assignee:
+          type: string
+
+    ReportDetails:
+      allOf:
+        - $ref: '#/components/schemas/ReportSummary'
+        - type: object
+          properties:
+            equipment_description:
+              type: string
+            problem_description:
+              type: string
+            submitted_by:
+              type: object
+              properties:
+                name:
+                  type: string
+                role:
+                  type: string
+                department:
+                  type: string
+            photos:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  url:
+                    type: string
+                  thumbnail_url:
+                    type: string
+            workflow:
+              type: array
+              items:
+                type: object
+                properties:
+                  action:
+                    type: string
+                  by:
+                    type: string
+                  at:
+                    type: string
+                    format: date-time
+                  priority:
+                    type: string
+            sla:
+              type: object
+              properties:
+                deadline:
+                  type: string
+                  format: date-time
+                remaining_hours:
+                  type: number
+                  format: float
+
+    CoordinatorDashboard:
+      type: object
+      properties:
+        assigned_blocks:
+          type: array
+          items:
+            type: object
+            properties:
+              block_id:
+                type: integer
+              block_name:
+                type: string
+              pending_approvals:
+                type: integer
+              in_progress:
+                type: integer
+              overdue:
+                type: integer
+        pending_reports:
+          type: array
+          items:
+            type: object
+            properties:
+              ticket_id:
+                type: string
+              category:
+                type: string
+              location:
+                type: string
+              problem_summary:
+                type: string
+              submitted_at:
+                type: string
+                format: date-time
+              submitted_by:
+                type: string
+              photos_count:
+                type: integer
+              possible_duplicates:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    ticket_id:
+                      type: string
+                    status:
+                      type: string
+        stats:
+          type: object
+          properties:
+            total_pending:
+              type: integer
+            approved_today:
+              type: integer
+            sla_compliance_rate:
+              type: number
+              format: float
+
+    FixerDashboard:
+      type: object
+      properties:
+        assigned_jobs:
+          type: array
+          items:
+            type: object
+            properties:
+              ticket_id:
+                type: string
+              priority:
+                type: string
+              priority_color:
+                type: string
+              location:
+                type: string
+              problem_summary:
+                type: string
+              category:
+                type: string
+              assigned_at:
+                type: string
+                format: date-time
+              sla_deadline:
+                type: string
+                format: date-time
+              sla_remaining:
+                type: string
+              reporter_name:
+                type: string
+              photos:
+                type: array
+                items:
+                  type: string
+        in_progress_jobs:
+          type: array
+          items:
+            type: object
+        completed_today:
+          type: integer
+        stats:
+          type: object
+          properties:
+            total_assigned:
+              type: integer
+            emergency_count:
+              type: integer
+            avg_completion_time:
+              type: string
+
+    AdminDashboard:
+      type: object
+      properties:
+        system_health:
+          type: object
+          properties:
+            uptime:
+              type: string
+            active_users:
+              type: integer
+            api_response_time:
+              type: string
+        reports_summary:
+          type: object
+          properties:
+            total_reports:
+              type: integer
+            reports_today:
+              type: integer
+            completion_rate:
+              type: number
+              format: float
+            avg_rating:
+              type: number
+              format: float
+        sla_compliance:
+          type: object
+          properties:
+            emergency:
+              type: number
+              format: float
+            high:
+              type: number
+              format: float
+            medium:
+              type: number
+              format: float
+            low:
+              type: number
+              format: float
+        alerts:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              message:
+                type: string
+              severity:
+                type: string
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "NOTIF-001"
+        type:
+          type: string
+          enum: [info, warning, alert]
+        title:
+          type: string
+          example: "SLA Warning"
+        message:
+          type: string
+          example: "Emergency report has 30 minutes remaining"
+        data:
+          type: object
+          properties:
+            ticket_id:
+              type: string
+            remaining_minutes:
+              type: integer
+        read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+  responses:
+    BadRequest:
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            data: null
+            message: "Validation failed"
+            error_code: "VALID_002"
+            timestamp: "2024-01-20T10:30:00Z"
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            data: null
+            message: "Authentication required"
+            error_code: "AUTH_002"
+            timestamp: "2024-01-20T10:30:00Z"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            data: null
+            message: "Insufficient permissions"
+            error_code: "AUTH_003"
+            timestamp: "2024-01-20T10:30:00Z"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            data: null
+            message: "Resource not found"
+            error_code: "RESOURCE_001"
+            timestamp: "2024-01-20T10:30:00Z"
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ErrorResponse'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      retry_after:
+                        type: integer
+                        example: 60
+                      limit:
+                        type: integer
+                        example: 100
+                      remaining:
+                        type: integer
+                        example: 0
+                      reset_time:
+                        type: string
+                        format: date-time
+          example:
+            success: false
+            data:
+              retry_after: 60
+              limit: 100
+              remaining: 0
+              reset_time: "2024-01-20T11:00:00Z"
+            message: "Rate limit exceeded. Try again in 60 seconds."
+            error_code: "RATE_001"
+            timestamp: "2024-01-20T10:30:00Z"
+
+tags:
+  - name: Authentication
+    description: User authentication and token management
+  - name: Users
+    description: User profile management
+  - name: Reports
+    description: Maintenance report management
+  - name: Coordinator
+    description: Coordinator-specific operations
+  - name: Fixer
+    description: Fixer-specific operations
+  - name: Admin
+    description: Administrative operations
+  - name: Notifications
+    description: Notification system
+  - name: Uploads
+    description: File upload operations
+  - name: Analytics
+    description: System analytics and performance metrics
+  - name: Sync
+    description: Offline synchronization support
+  - name: Webhooks
+    description: Webhook event handling
+  - name: System
+    description: System health and status endpoints
