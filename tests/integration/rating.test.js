@@ -29,24 +29,66 @@ describe('Rating and Feedback System', () => {
   let ticketId;
 
   beforeAll(async () => {
-    // Clean up existing test data - delete notifications first
-    await prisma.notification.deleteMany({
-      where: {
-        user: {
-          email: {
-            in: ['reporter@aastu.edu.et', 'fixer@aastu.edu.et']
-          }
-        }
-      }
-    });
-
-    await prisma.user.deleteMany({
+    // Clean up existing test data in correct order
+    // First delete all dependent records for test users
+    const testUsers = await prisma.user.findMany({
       where: {
         email: {
           in: ['reporter@aastu.edu.et', 'fixer@aastu.edu.et']
         }
       }
     });
+
+    if (testUsers.length > 0) {
+      const userIds = testUsers.map(u => u.id);
+      
+      // Delete notifications
+      await prisma.notification.deleteMany({
+        where: { user_id: { in: userIds } }
+      });
+
+      // Delete workflow history
+      await prisma.workflowHistory.deleteMany({
+        where: { user_id: { in: userIds } }
+      });
+
+      // Delete completion details for reports submitted by test users
+      await prisma.completionDetail.deleteMany({
+        where: {
+          report: {
+            submitted_by: { in: userIds }
+          }
+        }
+      });
+
+      // Delete report photos for reports submitted by test users
+      await prisma.reportPhoto.deleteMany({
+        where: {
+          report: {
+            submitted_by: { in: userIds }
+          }
+        }
+      });
+
+      // Delete reports
+      await prisma.report.deleteMany({
+        where: {
+          OR: [
+            { submitted_by: { in: userIds } },
+            { assigned_to: { in: userIds } }
+          ]
+        }
+      });
+
+      // Finally delete users
+      await prisma.user.deleteMany({
+        where: {
+          email: {
+            in: ['reporter@aastu.edu.et', 'fixer@aastu.edu.et']
+          }
+        }
+      });
+    }
 
     // Create test users
     const hashedPassword = await bcrypt.hash('password123', 10);
@@ -107,42 +149,64 @@ describe('Rating and Feedback System', () => {
 
   afterAll(async () => {
     // Clean up test data in correct order (delete dependent records first)
-    if (reportId) {
-      await prisma.notification.deleteMany({
-        where: { report_id: reportId }
-      });
-      await prisma.workflowHistory.deleteMany({
-        where: { report_id: reportId }
-      });
-      await prisma.reportPhoto.deleteMany({
-        where: { report_id: reportId }
-      });
-      await prisma.completionDetail.deleteMany({
-        where: { report_id: reportId }
-      });
-      await prisma.report.deleteMany({
-        where: { id: reportId }
-      });
-    }
-
-    // Delete notifications for test users (only if user IDs exist)
-    if (reporterId && fixerId) {
-      await prisma.notification.deleteMany({
-        where: {
-          user_id: {
-            in: [reporterId, fixerId]
-          }
-        }
-      });
-    }
-
-    await prisma.user.deleteMany({
+    const testUsers = await prisma.user.findMany({
       where: {
         email: {
           in: ['reporter@aastu.edu.et', 'fixer@aastu.edu.et']
         }
       }
     });
+
+    if (testUsers.length > 0) {
+      const userIds = testUsers.map(u => u.id);
+      
+      // Delete notifications
+      await prisma.notification.deleteMany({
+        where: { user_id: { in: userIds } }
+      });
+
+      // Delete workflow history
+      await prisma.workflowHistory.deleteMany({
+        where: { user_id: { in: userIds } }
+      });
+
+      // Delete completion details for reports submitted by test users
+      await prisma.completionDetail.deleteMany({
+        where: {
+          report: {
+            submitted_by: { in: userIds }
+          }
+        }
+      });
+
+      // Delete report photos for reports submitted by test users
+      await prisma.reportPhoto.deleteMany({
+        where: {
+          report: {
+            submitted_by: { in: userIds }
+          }
+        }
+      });
+
+      // Delete reports
+      await prisma.report.deleteMany({
+        where: {
+          OR: [
+            { submitted_by: { in: userIds } },
+            { assigned_to: { in: userIds } }
+          ]
+        }
+      });
+
+      // Finally delete users
+      await prisma.user.deleteMany({
+        where: {
+          email: {
+            in: ['reporter@aastu.edu.et', 'fixer@aastu.edu.et']
+          }
+        }
+      });
+    }
   });
 
   describe('Report Completion and Rating Flow', () => {
@@ -469,13 +533,20 @@ describe('Rating and Feedback System', () => {
 
     afterAll(async () => {
       // Delete notifications for test user
-      await prisma.notification.deleteMany({
-        where: { user_id: otherReporterId }
-      });
-      
-      await prisma.user.deleteMany({
-        where: { email: 'other-reporter@aastu.edu.et' }
-      });
+      if (otherReporterId) {
+        await prisma.notification.deleteMany({
+          where: { user_id: otherReporterId }
+        });
+        
+        // Delete any reports by this user
+        await prisma.report.deleteMany({
+          where: { submitted_by: otherReporterId }
+        });
+        
+        await prisma.user.deleteMany({
+          where: { email: 'other-reporter@aastu.edu.et' }
+        });
+      }
     });
 
     test('should not allow other reporters to rate someone else\'s report', async () => {
