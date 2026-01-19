@@ -1,10 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const notificationController = require('../controllers/notificationController');
-const { authenticate } = require('../middleware/auth');
-
-// Apply authentication middleware to all routes
-router.use(authenticate);
+const { authenticate, authorize } = require('../middleware/auth');
+const { validate, notificationSchemas, paramSchemas } = require('../middleware/validation');
 
 /**
  * @route GET /notifications
@@ -17,7 +15,14 @@ router.use(authenticate);
  * @query {string} sort_by - Sort field (created_at, read) (default: created_at)
  * @query {string} sort_order - Sort order (asc, desc) (default: desc)
  */
-router.get('/', notificationController.getUserNotifications);
+router.get('/', 
+  validate(notificationSchemas.getUserNotificationsQuery, 'query'),
+  authenticate,
+  notificationController.getUserNotifications
+);
+
+// Apply authentication middleware to remaining routes
+router.use(authenticate);
 
 /**
  * @route POST /notifications/:id/read
@@ -25,7 +30,10 @@ router.get('/', notificationController.getUserNotifications);
  * @access Private (Notification owner only)
  * @param {string} id - Notification ID
  */
-router.post('/:id/read', notificationController.markAsRead);
+router.post('/:id/read', 
+  validate(paramSchemas.userId, 'params'), // Reuse userId schema for notification ID
+  notificationController.markAsRead
+);
 
 /**
  * @route POST /notifications/read-all
@@ -43,14 +51,21 @@ router.post('/read-all', notificationController.markAllAsRead);
  * @query {string} user_id - Filter by user ID
  * @query {string} type - Filter by notification type
  */
-router.get('/statistics', notificationController.getNotificationStatistics);
+router.get('/statistics', 
+  authorize('admin'),
+  validate(notificationSchemas.notificationStatisticsQuery, 'query'),
+  notificationController.getNotificationStatistics
+);
 
 /**
  * @route POST /notifications/check-sla
  * @desc Trigger SLA violation check
  * @access Private (Admin only)
  */
-router.post('/check-sla', notificationController.checkSLAViolations);
+router.post('/check-sla', 
+  authorize('admin'),
+  notificationController.checkSLAViolations
+);
 
 /**
  * @route DELETE /notifications/cleanup
@@ -58,7 +73,11 @@ router.post('/check-sla', notificationController.checkSLAViolations);
  * @access Private (Admin only)
  * @query {number} days_old - Delete notifications older than this many days (default: 30)
  */
-router.delete('/cleanup', notificationController.cleanupOldNotifications);
+router.delete('/cleanup', 
+  authorize('admin'),
+  validate(notificationSchemas.cleanupNotifications, 'query'),
+  notificationController.cleanupOldNotifications
+);
 
 /**
  * @route POST /notifications/test
@@ -69,6 +88,10 @@ router.delete('/cleanup', notificationController.cleanupOldNotifications);
  * @body {string} message - Notification message
  * @body {object} data - Additional notification data (optional)
  */
-router.post('/test', notificationController.createTestNotification);
+router.post('/test', 
+  authorize('admin'),
+  validate(notificationSchemas.createTestNotification),
+  notificationController.createTestNotification
+);
 
 module.exports = router;

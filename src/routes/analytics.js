@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const analyticsController = require('../controllers/analyticsController');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
+const { validate, analyticsSchemas, paramSchemas } = require('../middleware/validation');
 
 // All analytics routes require authentication
 router.use(authenticate);
@@ -14,7 +15,11 @@ router.use(authenticate);
  * @query {string} period - Time period (day/week/month/quarter/year)
  * @query {string} metric - Metric type (completion_rate/avg_time/rating/duplicate_rate)
  */
-router.get('/', analyticsController.getAnalytics);
+router.get('/', 
+  authorize(['coordinator', 'admin']),
+  validate(analyticsSchemas.getAnalyticsQuery, 'query'),
+  analyticsController.getAnalytics
+);
 
 /**
  * @route GET /analytics/blocks/:block_id/performance
@@ -24,7 +29,11 @@ router.get('/', analyticsController.getAnalytics);
  * @query {string} start_date - Start date for filtering (ISO 8601)
  * @query {string} end_date - End date for filtering (ISO 8601)
  */
-router.get('/blocks/:block_id/performance', analyticsController.getBlockPerformance);
+router.get('/blocks/:block_id/performance', 
+  validate(paramSchemas.blockNumber, 'params'), // Reuse blockNumber schema for block_id
+  validate(analyticsSchemas.blockPerformanceQuery, 'query'),
+  analyticsController.getBlockPerformance
+);
 
 /**
  * @route GET /analytics/users/:user_id/performance
@@ -34,13 +43,21 @@ router.get('/blocks/:block_id/performance', analyticsController.getBlockPerforma
  * @query {string} start_date - Start date for filtering (ISO 8601)
  * @query {string} end_date - End date for filtering (ISO 8601)
  */
-router.get('/users/:user_id/performance', analyticsController.getUserPerformance);
+router.get('/users/:user_id/performance', 
+  authorize(['admin', 'coordinator']),
+  validate(paramSchemas.userId, 'params'),
+  validate(analyticsSchemas.userPerformanceQuery, 'query'),
+  analyticsController.getUserPerformance
+);
 
 /**
  * @route GET /analytics/system/status
  * @desc Get real-time system status and health metrics
  * @access Admin only
  */
-router.get('/system/status', analyticsController.getSystemStatus);
+router.get('/system/status', 
+  authorize('admin'),
+  analyticsController.getSystemStatus
+);
 
 module.exports = router;

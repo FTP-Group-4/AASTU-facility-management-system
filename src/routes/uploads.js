@@ -17,6 +17,8 @@ router.post('/photos',
 
 // Serve photo files (public access for now, can be restricted later)
 router.get('/photos/:filename', 
+  validate(fileSchemas.photoFilename, 'params'),
+  validate(fileSchemas.photoQuery, 'query'),
   fileController.servePhoto
 );
 

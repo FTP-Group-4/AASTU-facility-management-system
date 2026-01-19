@@ -5,34 +5,121 @@ const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const scheduler = require('./utils/scheduler');
+const { 
+  sanitizeInput, 
+  preventParameterPollution, 
+  requestSizeLimit, 
+  securityHeaders, 
+  securityLogger 
+} = require('./middleware/security');
 require('dotenv').config();
 
 const app = express();
 
 // Security middleware
-app.use(helmet());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute per IP
-  message: {
-    success: false,
-    message: 'Too many requests from this IP, please try again later.',
-    error_code: 'RATE_LIMIT_EXCEEDED'
-  }
-});
-app.use(limiter);
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://aastu-facilities.vercel.app' // Add production frontend URL
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['X-Total-Count', 'X-Page-Count']
+}));
+
+// Rate limiting with different limits for different endpoints
+const createRateLimiter = (windowMs, max, message) => {
+  return rateLimit({
+    windowMs,
+    max,
+    message: {
+      success: false,
+      message,
+      error_code: 'RATE_LIMIT_EXCEEDED',
+      data: null,
+      timestamp: new Date().toISOString()
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    // Skip successful requests for some endpoints
+    skip: (req, res) => false, // Always apply rate limiting headers
+    keyGenerator: (req) => {
+      // Use user ID if authenticated, otherwise IP
+      return req.user?.userId || req.ip;
+    }
+  });
+};
+
+// General rate limiting
+const generalLimiter = createRateLimiter(
+  1 * 60 * 1000, // 1 minute
+  100, // 100 requests per minute per user/IP
+  'Too many requests from this IP, please try again later.'
+);
+
+// Strict rate limiting for auth endpoints
+const authLimiter = createRateLimiter(
+  15 * 60 * 1000, // 15 minutes
+  process.env.NODE_ENV === 'test' ? 50 : 5, // Allow more requests in test environment
+  'Too many authentication attempts, please try again later.'
+);
+
+// File upload rate limiting
+const uploadLimiter = createRateLimiter(
+  1 * 60 * 1000, // 1 minute
+  10, // 10 uploads per minute
+  'Too many file uploads, please try again later.'
+);
+
+// Apply general rate limiting
+app.use(generalLimiter);
 
 // General middleware
 app.use(compression());
 app.use(morgan('combined'));
+app.use(requestSizeLimit);
+app.use(securityHeaders);
+app.use(securityLogger);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(sanitizeInput);
+app.use(preventParameterPollution);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -60,15 +147,15 @@ const reportRoutes = require('./routes/reports');
 const notificationRoutes = require('./routes/notifications');
 const analyticsRoutes = require('./routes/analytics');
 
-// API routes
-app.use('/auth', authRoutes);
+// API routes with specific rate limiting
+app.use('/auth', authLimiter, authRoutes);
+app.use('/uploads', uploadLimiter, uploadRoutes);
 app.use('/users', userRoutes);
 app.use('/blocks', blockRoutes);
 app.use('/admin', adminRoutes);
 app.use('/coordinator', coordinatorRoutes);
 app.use('/coordinators', coordinatorRoutes); // Also mount under plural form for compatibility
 app.use('/fixer', fixerRoutes);
-app.use('/uploads', uploadRoutes);
 app.use('/reports', reportRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/analytics', analyticsRoutes);

@@ -6,7 +6,7 @@ const analyticsController = require('../controllers/analyticsController');
 const userController = require('../controllers/userController');
 const adminController = require('../controllers/adminController');
 const { authenticate, authorize } = require('../middleware/auth');
-const { validate, blockSchemas, paramSchemas, userSchemas, authSchemas, adminSchemas } = require('../middleware/validation');
+const { validate, blockSchemas, paramSchemas, userSchemas, authSchemas, adminSchemas, analyticsSchemas } = require('../middleware/validation');
 
 // Admin block management routes
 
@@ -238,6 +238,7 @@ router.get('/dashboard',
 router.post('/reports/generate',
   authenticate,
   authorize('admin'),
+  validate(analyticsSchemas.generateReportBody),
   analyticsController.generateReport
 );
 

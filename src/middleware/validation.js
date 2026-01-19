@@ -410,6 +410,70 @@ const paramSchemas = {
   })
 };
 
+// Notification validation schemas
+const notificationSchemas = {
+  getUserNotificationsQuery: Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(20),
+    unread_only: Joi.boolean().optional().default(false),
+    type: Joi.string().valid('info', 'warning', 'alert').optional(),
+    sort_by: Joi.string().valid('created_at', 'read').default('created_at'),
+    sort_order: Joi.string().valid('asc', 'desc').default('desc')
+  }),
+
+  notificationStatisticsQuery: Joi.object({
+    start_date: Joi.date().iso().optional(),
+    end_date: Joi.date().iso().optional(),
+    user_id: Joi.string().optional(),
+    type: Joi.string().valid('info', 'warning', 'alert').optional()
+  }),
+
+  cleanupNotifications: Joi.object({
+    days_old: Joi.number().integer().min(1).max(365).default(30)
+  }),
+
+  createTestNotification: Joi.object({
+    type: Joi.string().valid('info', 'warning', 'alert').required(),
+    title: Joi.string().min(1).max(200).required(),
+    message: Joi.string().min(1).max(1000).required(),
+    data: Joi.object().optional()
+  })
+};
+
+// Analytics validation schemas
+const analyticsSchemas = {
+  getAnalyticsQuery: Joi.object({
+    block_id: Joi.number().integer().min(1).max(100).optional(),
+    period: Joi.string().valid('day', 'week', 'month', 'quarter', 'year').optional(),
+    metric: Joi.string().valid('completion_rate', 'avg_time', 'rating', 'duplicate_rate').optional(),
+    start_date: Joi.date().iso().optional(),
+    end_date: Joi.date().iso().optional()
+  }),
+
+  blockPerformanceQuery: Joi.object({
+    start_date: Joi.date().iso().optional(),
+    end_date: Joi.date().iso().optional()
+  }),
+
+  userPerformanceQuery: Joi.object({
+    start_date: Joi.date().iso().optional(),
+    end_date: Joi.date().iso().optional()
+  }),
+
+  generateReportBody: Joi.object({
+    report_type: Joi.string().valid('system_summary', 'block_performance', 'user_performance', 'sla_compliance').required(),
+    format: Joi.string().valid('pdf', 'excel', 'json').default('pdf'),
+    filters: Joi.object({
+      start_date: Joi.date().iso().optional(),
+      end_date: Joi.date().iso().optional(),
+      block_ids: Joi.array().items(Joi.number().integer().min(1).max(100)).optional(),
+      user_ids: Joi.array().items(Joi.string()).optional(),
+      categories: Joi.array().items(Joi.string().valid('electrical', 'mechanical')).optional(),
+      priorities: Joi.array().items(Joi.string().valid('emergency', 'high', 'medium', 'low')).optional()
+    }).optional()
+  })
+};
+
 // Admin configuration validation schemas
 const adminSchemas = {
   updateSystemConfig: Joi.object({
@@ -576,5 +640,7 @@ module.exports = {
   reportSchemas,
   paramSchemas,
   bodySchemas,
-  adminSchemas
+  adminSchemas,
+  notificationSchemas,
+  analyticsSchemas
 };
