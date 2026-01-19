@@ -1,0 +1,195 @@
+/* @import "tailwindcss"; */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design Tokens - AASTU Facilities Management System */
+@layer base {
+  :root {
+    /* Color System - Light Theme */
+    --color-primary: #1e40af;
+    --color-primary-hover: #1e3a8a;
+    --color-secondary: #3b82f6;
+    --color-accent: #60a5fa;
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-danger: #ef4444;
+    --color-emergency: #dc2626;
+    
+    /* Neutral Colors */
+    --color-background: #ffffff;
+    --color-surface: #f9fafb;
+    --color-surface-elevated: #ffffff;
+    --color-border: #e5e7eb;
+    --color-text-primary: #111827;
+    --color-text-secondary: #6b7280;
+    --color-text-tertiary: #9ca3af;
+    
+    /* Status Colors */
+    --color-status-submitted: #3b82f6;
+    --color-status-reviewing: #f59e0b;
+    --color-status-assigned: #8b5cf6;
+    --color-status-in-progress: #06b6d4;
+    --color-status-completed: #10b981;
+    --color-status-rejected: #ef4444;
+    
+    /* Priority Colors */
+    --color-priority-emergency: #dc2626;
+    --color-priority-high: #f59e0b;
+    --color-priority-medium: #3b82f6;
+    --color-priority-low: #6b7280;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+  }
+
+  [data-theme="dark"] {
+    --color-background: #111827;
+    --color-surface: #1f2937;
+    --color-surface-elevated: #374151;
+    --color-border: #374151;
+    --color-text-primary: #f9fafb;
+    --color-text-secondary: #d1d5db;
+    --color-text-tertiary: #9ca3af;
+  }
+
+  [data-theme="high-contrast"] {
+    --color-primary: #0000ff;
+    --color-background: #000000;
+    --color-surface: #000000;
+    --color-surface-elevated: #1a1a1a;
+    --color-border: #ffffff;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #ffffff;
+    --color-text-tertiary: #cccccc;
+    --color-success: #00ff00;
+    --color-danger: #ff0000;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', 'Noto Sans Ethiopic', system-ui, -apple-system, sans-serif;
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Focus Visible for Accessibility */
+  *:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Skip to Main Content Link */
+  .skip-to-main {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--color-primary);
+    color: white;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 100;
+  }
+
+  .skip-to-main:focus {
+    top: 0;
+  }
+
+  /* Typography */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideDown {
+    from { 
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Utility Classes */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+
+  /* Print Styles */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
+
+  /* Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
