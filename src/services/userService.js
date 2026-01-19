@@ -364,6 +364,9 @@ class UserService {
 
       return updatedUser;
     } catch (error) {
+      if (error.code === 'P2025') {
+        throw new Error('User not found');
+      }
       throw error;
     }
   }

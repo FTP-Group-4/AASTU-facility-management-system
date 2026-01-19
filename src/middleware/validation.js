@@ -410,6 +410,78 @@ const paramSchemas = {
   })
 };
 
+// Admin configuration validation schemas
+const adminSchemas = {
+  updateSystemConfig: Joi.object({
+    sla_settings: Joi.object({
+      emergency_hours: Joi.number().integer().min(1).max(24).optional(),
+      high_hours: Joi.number().integer().min(1).max(72).optional(),
+      medium_hours: Joi.number().integer().min(1).max(168).optional(),
+      low_hours: Joi.number().integer().min(1).max(720).optional()
+    }).optional(),
+    notification_preferences: Joi.object({
+      email_enabled: Joi.boolean().optional(),
+      sms_enabled: Joi.boolean().optional(),
+      push_enabled: Joi.boolean().optional(),
+      emergency_immediate: Joi.boolean().optional()
+    }).optional(),
+    system_settings: Joi.object({
+      max_photos_per_report: Joi.number().integer().min(1).max(10).optional(),
+      max_file_size_mb: Joi.number().integer().min(1).max(50).optional(),
+      duplicate_threshold: Joi.number().min(0.1).max(1.0).optional(),
+      auto_assignment: Joi.boolean().optional()
+    }).optional(),
+    maintenance_mode: Joi.boolean().optional()
+  }).min(1),
+
+  createBlockAdmin: Joi.object({
+    block_number: Joi.number()
+      .integer()
+      .min(1)
+      .max(200)
+      .required()
+      .messages({
+        'number.min': 'Block number must be at least 1',
+        'number.max': 'Block number must not exceed 200'
+      }),
+    name: Joi.string()
+      .max(100)
+      .optional(),
+    description: Joi.string()
+      .max(500)
+      .optional(),
+    coordinator_ids: Joi.array()
+      .items(Joi.string())
+      .optional()
+      .messages({
+        'array.base': 'Coordinator IDs must be an array of strings'
+      })
+  }),
+
+  bulkInitializeBlocks: Joi.object({
+    start_number: Joi.number()
+      .integer()
+      .min(1)
+      .max(200)
+      .default(1),
+    end_number: Joi.number()
+      .integer()
+      .min(1)
+      .max(200)
+      .default(100),
+    prefix: Joi.string()
+      .max(50)
+      .default('Block')
+  }).custom((value, helpers) => {
+    if (value.start_number > value.end_number) {
+      return helpers.error('custom.invalidRange');
+    }
+    return value;
+  }).messages({
+    'custom.invalidRange': 'Start number must be less than or equal to end number'
+  })
+};
+
 // Body validation schemas
 const bodySchemas = {
   reviewReport: Joi.object({
@@ -503,5 +575,6 @@ module.exports = {
   fileSchemas,
   reportSchemas,
   paramSchemas,
-  bodySchemas
+  bodySchemas,
+  adminSchemas
 };

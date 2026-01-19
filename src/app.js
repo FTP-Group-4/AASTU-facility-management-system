@@ -58,6 +58,7 @@ const fixerRoutes = require('./routes/fixers');
 const uploadRoutes = require('./routes/uploads');
 const reportRoutes = require('./routes/reports');
 const notificationRoutes = require('./routes/notifications');
+const analyticsRoutes = require('./routes/analytics');
 
 // API routes
 app.use('/auth', authRoutes);
@@ -70,6 +71,7 @@ app.use('/fixer', fixerRoutes);
 app.use('/uploads', uploadRoutes);
 app.use('/reports', reportRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/analytics', analyticsRoutes);
 
 // API info endpoint
 app.get('/api', (req, res) => {
@@ -128,7 +130,13 @@ app.get('/api', (req, res) => {
         'GET /notifications/statistics - Get notification statistics (admin)',
         'POST /notifications/check-sla - Trigger SLA violation check (admin)',
         'DELETE /notifications/cleanup - Clean up old notifications (admin)',
-        'POST /notifications/test - Create test notification (admin/dev)'
+        'POST /notifications/test - Create test notification (admin/dev)',
+        'GET /analytics - Get system analytics with filtering',
+        'GET /analytics/blocks/:id/performance - Get block performance metrics',
+        'GET /analytics/users/:id/performance - Get user performance metrics (admin/coordinator)',
+        'GET /analytics/system/status - Get real-time system status (admin)',
+        'GET /admin/dashboard - Get admin dashboard with system health',
+        'POST /admin/reports/generate - Generate and download system reports (admin)'
       ]
     }
   });
