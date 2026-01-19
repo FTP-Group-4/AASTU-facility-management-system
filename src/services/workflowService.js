@@ -1,4 +1,5 @@
 const prisma = require('../config/database');
+const notificationService = require('./notificationService');
 
 /**
  * WorkflowService - Manages report workflow state transitions
@@ -355,6 +356,9 @@ class WorkflowService {
       // Check for SLA violations after transition
       await this.checkSLAViolation(result);
 
+      // Create notification for the transition
+      await this.createTransitionNotification(result, toStatus, fromStatus);
+
       return {
         success: true,
         report: result,
@@ -366,6 +370,41 @@ class WorkflowService {
       };
     } catch (error) {
       throw error;
+    }
+  }
+
+  /**
+   * Create notification for workflow transition
+   * @param {object} report - Updated report object
+   * @param {string} toStatus - New status
+   * @param {string} fromStatus - Previous status
+   * @returns {Promise<void>}
+   */
+  async createTransitionNotification(report, toStatus, fromStatus) {
+    try {
+      // Map status transitions to notification events
+      const eventMapping = {
+        'submitted': 'created',
+        'under_review': 'under_review',
+        'approved': 'approved',
+        'rejected': 'rejected',
+        'assigned': 'assigned',
+        'in_progress': 'in_progress',
+        'completed': 'completed',
+        'closed': 'closed',
+        'reopened': 'reopened'
+      };
+
+      const eventType = eventMapping[toStatus];
+      if (eventType) {
+        await notificationService.createReportNotification(report, eventType, {
+          previous_status: fromStatus,
+          rejection_reason: report.rejection_reason
+        });
+      }
+    } catch (error) {
+      console.error('Error creating transition notification:', error);
+      // Don't throw error as this is not critical for workflow execution
     }
   }
 

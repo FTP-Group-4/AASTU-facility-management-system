@@ -2,6 +2,7 @@ const prisma = require('../config/database');
 const { generateTicketId } = require('../utils/ticketGenerator');
 const duplicateDetectionService = require('./duplicateDetectionService');
 const workflowService = require('./workflowService');
+const notificationService = require('./notificationService');
 
 class ReportService {
   /**
@@ -118,6 +119,14 @@ class ReportService {
           notes: 'Report submitted'
         }
       });
+
+      // Create notification for report creation
+      try {
+        await notificationService.createReportNotification(report, 'created');
+      } catch (error) {
+        console.error('Error creating report notification:', error);
+        // Don't throw error as this is not critical for report creation
+      }
 
       return report;
     } catch (error) {

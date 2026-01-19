@@ -18,6 +18,16 @@ describe('Block Management API', () => {
         }
       }
     });
+    
+    // Delete notifications first to avoid foreign key constraint violations
+    await prisma.notification.deleteMany({
+      where: {
+        user: {
+          email: { in: ['admin@aastu.edu.et', 'coordinator@aastu.edu.et'] }
+        }
+      }
+    });
+    
     await prisma.user.deleteMany({
       where: {
         email: { in: ['admin@aastu.edu.et', 'coordinator@aastu.edu.et'] }
@@ -62,6 +72,16 @@ describe('Block Management API', () => {
         }
       }
     });
+    
+    // Delete notifications first to avoid foreign key constraint violations
+    await prisma.notification.deleteMany({
+      where: {
+        user: {
+          email: { in: ['admin@aastu.edu.et', 'coordinator@aastu.edu.et'] }
+        }
+      }
+    });
+    
     await prisma.user.deleteMany({
       where: {
         email: { in: ['admin@aastu.edu.et', 'coordinator@aastu.edu.et'] }

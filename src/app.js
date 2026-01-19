@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const scheduler = require('./utils/scheduler');
 require('dotenv').config();
 
 const app = express();
@@ -56,6 +57,7 @@ const coordinatorRoutes = require('./routes/coordinators');
 const fixerRoutes = require('./routes/fixers');
 const uploadRoutes = require('./routes/uploads');
 const reportRoutes = require('./routes/reports');
+const notificationRoutes = require('./routes/notifications');
 
 // API routes
 app.use('/auth', authRoutes);
@@ -67,6 +69,7 @@ app.use('/coordinators', coordinatorRoutes); // Also mount under plural form for
 app.use('/fixer', fixerRoutes);
 app.use('/uploads', uploadRoutes);
 app.use('/reports', reportRoutes);
+app.use('/notifications', notificationRoutes);
 
 // API info endpoint
 app.get('/api', (req, res) => {
@@ -118,7 +121,14 @@ app.get('/api', (req, res) => {
         'POST /reports/:id/rate - Submit rating and feedback',
         'GET /reports/:id/transitions - Get available transitions',
         'GET /reports/:id/history - Get workflow history',
-        'DELETE /reports/:id - Delete report (admin only)'
+        'DELETE /reports/:id - Delete report (admin only)',
+        'GET /notifications - Get user notifications',
+        'POST /notifications/:id/read - Mark notification as read',
+        'POST /notifications/read-all - Mark all notifications as read',
+        'GET /notifications/statistics - Get notification statistics (admin)',
+        'POST /notifications/check-sla - Trigger SLA violation check (admin)',
+        'DELETE /notifications/cleanup - Clean up old notifications (admin)',
+        'POST /notifications/test - Create test notification (admin/dev)'
       ]
     }
   });
@@ -154,6 +164,9 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`🚀 AASTU Facilities Management API running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`📖 API info: http://localhost:${PORT}/api`);
+    
+    // Start background job scheduler
+    scheduler.start();
   });
 }
 
