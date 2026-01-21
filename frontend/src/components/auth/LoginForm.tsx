@@ -48,7 +48,7 @@ const LoginForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -58,7 +58,7 @@ const LoginForm = () => {
 
     try {
       await login(email, password, rememberMe);
-      
+
       // Redirect to the intended page or dashboard
       navigate(from, { replace: true });
     } catch (err: any) {
@@ -137,16 +137,16 @@ const LoginForm = () => {
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
+              className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
               disabled={isLoading}
             />
-            <span className="text-sm text-muted-foreground">Remember me</span>
+            <span className="text-sm text-gray-600">Remember me</span>
           </label>
 
           <button
             type="button"
             onClick={handleForgotPassword}
-            className="text-sm text-primary hover:text-primary-dark transition-colors"
+            className="text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors"
             disabled={isLoading}
           >
             Forgot password?
@@ -156,7 +156,7 @@ const LoginForm = () => {
         {/* Submit Button */}
         <Button
           type="submit"
-          className="w-full"
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white"
           isLoading={isLoading}
           disabled={isLoading}
         >

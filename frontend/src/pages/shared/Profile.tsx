@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User as UserIcon, Mail, Phone, Shield, Camera, Save, Lock, Loader2, Building } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, Shield, Camera, Save, Lock, Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { authApi } from '../../api/auth/authApi';
 import Button from '../../components/common/UI/Button';
@@ -48,7 +48,7 @@ const Profile = () => {
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-4xl mx-auto space-y-6 pb-12">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-gray-800 tracking-tight">My Profile</h1>
             </div>
@@ -78,13 +78,13 @@ const Profile = () => {
                         <h2 className="text-xl font-bold text-gray-900">{user?.full_name}</h2>
                         <p className="text-sm text-gray-500 capitalize mb-4">{user?.role?.replace('_', ' ')}</p>
 
-                        <div className="flex items-center justify-center space-x-2 text-xs font-semibold px-3 py-1 bg-green-50 text-green-700 rounded-full inline-flex border border-green-100">
+                        <div className="flex items-center justify-center space-x-2 text-xs font-semibold px-3 py-1 bg-green-50 text-green-700 rounded-full inline-flex border border-green-100 mb-6">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
                             <span>Active Account</span>
                         </div>
 
                         {user?.role === 'reporter' && (
-                            <div className="mt-6 pt-6 border-t border-gray-100 space-y-4 text-left">
+                            <div className="pt-6 border-t border-gray-100 space-y-4 text-left">
                                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Reporter Stats</h4>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-gray-50 p-3 rounded-lg">
@@ -96,12 +96,26 @@ const Profile = () => {
                                         <p className="text-[10px] text-gray-500 font-medium uppercase">Pending</p>
                                     </div>
                                 </div>
-                                {(user as any).department && (
-                                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                                        <Building className="w-4 h-4 text-gray-400" />
-                                        <span>{(user as any).department}</span>
+                            </div>
+                        )}
+
+                        {user?.role === 'coordinator' && (
+                            <div className="pt-6 border-t border-gray-100 space-y-4 text-left">
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Coordinator Stats</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-gray-50 p-3 rounded-lg">
+                                        <p className="text-lg font-bold text-emerald-600">{(user as any).stats?.approvals_made || 0}</p>
+                                        <p className="text-[10px] text-gray-500 font-medium uppercase">Approved</p>
                                     </div>
-                                )}
+                                    <div className="bg-gray-50 p-3 rounded-lg">
+                                        <p className="text-lg font-bold text-red-600">{(user as any).stats?.rejections_made || 0}</p>
+                                        <p className="text-[10px] text-gray-500 font-medium uppercase">Rejected</p>
+                                    </div>
+                                </div>
+                                <div className="bg-indigo-50 p-3 rounded-lg">
+                                    <p className="text-lg font-bold text-indigo-600">{(user as any).stats?.pending_reviews || 0}</p>
+                                    <p className="text-[10px] text-gray-500 font-medium uppercase">Pending Review</p>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -114,12 +128,9 @@ const Profile = () => {
                         <div className="flex flex-wrap gap-2">
                             {user?.permissions?.map((p: string, i: number) => (
                                 <span key={i} className="text-[10px] uppercase font-bold px-2.5 py-1 bg-gray-50 text-gray-600 rounded border border-gray-100">
-                                    {p.replace(':', ' ')}
+                                    {p.split(':').join(' ')}
                                 </span>
                             ))}
-                            {(!user?.permissions || user.permissions.length === 0) && (
-                                <span className="text-xs text-gray-400 italic">Standard reporter permissions</span>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -127,7 +138,7 @@ const Profile = () => {
                 {/* Right Column - Edit Form */}
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/30">
                             <h3 className="font-bold text-gray-800">Account Details</h3>
                             <button
                                 onClick={() => setIsEditing(!isEditing)}

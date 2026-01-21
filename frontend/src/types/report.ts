@@ -15,6 +15,7 @@ export type ReportStatus =
 export interface Location {
   type: 'specific' | 'general';
   block_id?: number; // 1-100
+  block_name?: string;
   room_number?: string;
   description?: string; // Required if general
 }

@@ -11,10 +11,11 @@ class WorkflowService {
     // Define valid workflow states and their allowed transitions
     this.workflowStates = {
       submitted: {
-        allowedTransitions: ['under_review', 'rejected'],
+        allowedTransitions: ['under_review', 'approved', 'rejected'],
         requiredRoles: ['coordinator', 'admin'],
         actions: {
           under_review: 'review',
+          approved: 'approve',
           rejected: 'reject'
         }
       },
@@ -138,7 +139,7 @@ class WorkflowService {
         // Fixers can only work on reports assigned to them or in their category
         if ((userRole === 'electrical_fixer' || userRole === 'mechanical_fixer')) {
           const fixerCategory = userRole === 'electrical_fixer' ? 'electrical' : 'mechanical';
-          
+
           console.log('Fixer validation:', {
             userRole,
             fixerCategory,
@@ -149,7 +150,7 @@ class WorkflowService {
             userIdType: typeof userId,
             assignedToType: typeof report.assigned_to
           });
-          
+
           if (report.category !== fixerCategory) {
             return {
               valid: false,
@@ -209,9 +210,9 @@ class WorkflowService {
 
       // Check if coordinator has general assignment (null block_id)
       const hasGeneralAssignment = assignments.some(a => a.block_id === null);
-      
+
       // Check if coordinator is assigned to the specific block
-      const hasBlockAssignment = report.block_id && 
+      const hasBlockAssignment = report.block_id &&
         assignments.some(a => a.block_id === report.block_id);
 
       // Coordinator has access if:
@@ -219,8 +220,8 @@ class WorkflowService {
       // 2. They have specific block assignment and report is in that block
       // 3. They have general assignment (can handle "Location Not Specified")
       return (hasGeneralAssignment && report.location_type === 'general') ||
-             hasBlockAssignment ||
-             hasGeneralAssignment;
+        hasBlockAssignment ||
+        hasGeneralAssignment;
     } catch (error) {
       console.error('Error validating coordinator access:', error);
       return false;
@@ -296,7 +297,7 @@ class WorkflowService {
           updateData.completion_notes = transitionData.completion_notes;
           updateData.parts_used = transitionData.parts_used || null;
           updateData.time_spent_minutes = transitionData.time_spent_minutes || null;
-          
+
           // Create completion details record
           try {
             await completionService.createCompletionDetails(reportId, userId, {
@@ -485,7 +486,7 @@ class WorkflowService {
   async createSLAViolationNotification(report, hoursElapsed, slaHours) {
     try {
       const violationHours = Math.round(hoursElapsed - slaHours);
-      
+
       // Notify coordinators and admins
       const coordinators = await prisma.coordinatorAssignment.findMany({
         where: {
@@ -582,10 +583,10 @@ class WorkflowService {
 
       for (const toStatus of currentState.allowedTransitions) {
         const validation = await this.validateTransition(
-          report.status, 
-          toStatus, 
-          userRole, 
-          userId, 
+          report.status,
+          toStatus,
+          userRole,
+          userId,
           report
         );
 
@@ -632,13 +633,13 @@ class WorkflowService {
       const { start_date, end_date, block_id, category, priority } = filters;
 
       let whereCondition = {};
-      
+
       if (start_date || end_date) {
         whereCondition.created_at = {};
         if (start_date) whereCondition.created_at.gte = new Date(start_date);
         if (end_date) whereCondition.created_at.lte = new Date(end_date);
       }
-      
+
       if (block_id) whereCondition.block_id = block_id;
       if (category) whereCondition.category = category;
       if (priority) whereCondition.priority = priority;
@@ -705,7 +706,7 @@ class WorkflowService {
       reports.forEach(report => {
         const slaHours = this.prioritySLA[report.priority];
         const hoursElapsed = (now - new Date(report.created_at)) / (1000 * 60 * 60);
-        
+
         if (hoursElapsed > slaHours) {
           violationsCount++;
         }

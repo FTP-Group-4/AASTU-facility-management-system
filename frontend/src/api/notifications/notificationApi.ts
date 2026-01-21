@@ -10,8 +10,10 @@ export const notificationApi = {
         if (filters?.type) params.append('type', filters.type);
         if (filters?.limit) params.append('limit', filters.limit.toString());
 
-        const response = await api.get<ReportApiResponse<NotificationListResponse>>(`/notifications?${params.toString()}`);
-        return response.data.data;
+        const response = await api.get<ReportApiResponse<NotificationListResponse>>(
+            `/notifications?${params.toString()}`
+        ) as any;
+        return response.data;
     },
 
     // Mark notification as read

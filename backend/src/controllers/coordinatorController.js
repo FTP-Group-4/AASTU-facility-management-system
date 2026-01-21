@@ -1,24 +1,38 @@
 const reportService = require('../services/reportService');
 const workflowService = require('../services/workflowService');
 const userService = require('../services/userService');
+const duplicateDetectionService = require('../services/duplicateDetectionService');
 const prisma = require('../config/database');
-const { successResponse, errorResponse } = require('../utils/response');
+const { Prisma } = require('@prisma/client');
+const { successResponse, errorResponse, notFoundResponse } = require('../utils/response');
 
 /**
- * CoordinatorController - Handles coordinator-specific operations
- * Manages coordinator dashboard, report reviews, and priority assignments
+ * CoordinatorController - Optimized and Standardized
+ * Strictly follows AASTU Facilities Management System API Documentation
+ * Fixes the "Postman hanging" bug by correctly calling res.json()
  */
 class CoordinatorController {
+  constructor() {
+    this.getDashboard = this.getDashboard.bind(this);
+    this.reviewReport = this.reviewReport.bind(this);
+    this.getAssignedReports = this.getAssignedReports.bind(this);
+    this.getPendingReports = this.getPendingReports.bind(this);
+    this.getAvailableFixers = this.getAvailableFixers.bind(this);
+    this.getReport = this.getReport.bind(this);
+    this.getPendingCount = this.getPendingCount.bind(this);
+    this._transformReport = this._transformReport.bind(this);
+  }
+
   /**
-   * Get coordinator dashboard with assigned reports
-   * @route GET /coordinator/dashboard
-   * @access Private (Coordinators only)
+   * coordinator: Get Dashboard
+   * GET /coordinator/dashboard
    */
   async getDashboard(req, res) {
+    const startTime = Date.now();
     try {
-      const coordinatorId = req.user.userId; // Changed from req.user.id to req.user.userId
-      
-      // Get coordinator's assigned blocks
+      const coordinatorId = req.user.userId || req.user.id;
+
+      // 1. Get coordinator's assigned blocks
       const assignments = await prisma.coordinatorAssignment.findMany({
         where: { coordinator_id: coordinatorId },
         include: {
@@ -32,14 +46,11 @@ class CoordinatorController {
         }
       });
 
-      const assignedBlockIds = assignments
-        .map(a => a.block_id)
-        .filter(Boolean);
+      const assignedBlockIds = assignments.map(a => a.block_id).filter(Boolean);
       const hasGeneralAssignment = assignments.some(a => a.block_id === null);
 
       // Build where condition for reports
       let reportsWhere = {};
-      
       if (hasGeneralAssignment && assignedBlockIds.length > 0) {
         reportsWhere.OR = [
           { block_id: { in: assignedBlockIds } },
@@ -50,586 +61,482 @@ class CoordinatorController {
       } else if (assignedBlockIds.length > 0) {
         reportsWhere.block_id = { in: assignedBlockIds };
       } else {
-        // No assignments - return empty dashboard
-        return successResponse(res, {
-          assignments: [],
-          reports: {
-            pending_review: [],
-            under_review: [],
-            approved: [],
-            rejected: []
-          },
-          statistics: {
-            total_reports: 0,
-            pending_review: 0,
-            under_review: 0,
-            approved: 0,
-            rejected: 0,
-            sla_violations: 0
+        // No assignments - return empty dashboard structure
+        return res.status(200).json(successResponse('Coordinator dashboard retrieved successfully', {
+          assigned_blocks: [],
+          pending_reports: [],
+          stats: {
+            total_pending: 0,
+            approved_today: 0,
+            sla_compliance_rate: 100
           }
-        }, 'Coordinator dashboard retrieved successfully');
+        }));
       }
 
-      // Get reports by status
-      const [pendingReports, underReviewReports, approvedReports, rejectedReports] = await Promise.all([
+      // 2. Prepare date boundaries
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const slaCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24h for general stats
+
+      // 3. Fetch data in parallel
+      const [
+        pendingReports,
+        totalPending,
+        approvedToday,
+        totalReports,
+        blockStatsRaw,
+        overdueStatsRaw
+      ] = await Promise.all([
+        // Top 10 pending reports
         prisma.report.findMany({
+          where: { ...reportsWhere, status: 'submitted' },
+          include: {
+            submitter: { select: { id: true, full_name: true } },
+            block: { select: { id: true, block_number: true, name: true } },
+            photos: { select: { id: true } }
+          },
+          orderBy: { created_at: 'asc' },
+          take: 10
+        }),
+        // Overall stats
+        prisma.report.count({ where: { ...reportsWhere, status: 'submitted' } }),
+        prisma.report.count({
           where: {
             ...reportsWhere,
-            status: 'submitted'
-          },
-          include: {
-            submitter: {
-              select: {
-                id: true,
-                full_name: true,
-                email: true
-              }
-            },
-            block: {
-              select: {
-                id: true,
-                block_number: true,
-                name: true
-              }
-            },
-            photos: {
-              select: {
-                id: true,
-                filename: true,
-                thumbnail_path: true
-              }
-            }
-          },
-          orderBy: {
-            created_at: 'asc'
+            status: { in: ['approved', 'assigned', 'in_progress', 'completed', 'closed'] },
+            updated_at: { gte: startOfToday }
           }
         }),
-        
-        prisma.report.findMany({
-          where: {
-            ...reportsWhere,
-            status: 'under_review'
-          },
-          include: {
-            submitter: {
-              select: {
-                id: true,
-                full_name: true,
-                email: true
-              }
-            },
-            block: {
-              select: {
-                id: true,
-                block_number: true,
-                name: true
-              }
-            },
-            photos: {
-              select: {
-                id: true,
-                filename: true,
-                thumbnail_path: true
-              }
-            }
-          },
-          orderBy: {
-            created_at: 'asc'
-          }
+        prisma.report.count({ where: reportsWhere }),
+        // Block-wise stats
+        prisma.report.groupBy({
+          by: ['block_id', 'status'],
+          where: { block_id: { in: assignedBlockIds } },
+          _count: true
         }),
-
-        prisma.report.findMany({
+        prisma.report.groupBy({
+          by: ['block_id'],
           where: {
-            ...reportsWhere,
-            status: 'approved'
+            block_id: { in: assignedBlockIds },
+            status: { notIn: ['completed', 'closed', 'rejected'] },
+            created_at: { lt: slaCutoff }
           },
-          include: {
-            submitter: {
-              select: {
-                id: true,
-                full_name: true,
-                email: true
-              }
-            },
-            assignee: {
-              select: {
-                id: true,
-                full_name: true,
-                role: true
-              }
-            },
-            block: {
-              select: {
-                id: true,
-                block_number: true,
-                name: true
-              }
-            }
-          },
-          orderBy: {
-            created_at: 'desc'
-          },
-          take: 10 // Limit recent approved reports
-        }),
-
-        prisma.report.findMany({
-          where: {
-            ...reportsWhere,
-            status: 'rejected'
-          },
-          include: {
-            submitter: {
-              select: {
-                id: true,
-                full_name: true,
-                email: true
-              }
-            },
-            block: {
-              select: {
-                id: true,
-                block_number: true,
-                name: true
-              }
-            }
-          },
-          orderBy: {
-            created_at: 'desc'
-          },
-          take: 10 // Limit recent rejected reports
+          _count: true
         })
       ]);
 
-      // Calculate statistics
-      const totalReports = await prisma.report.count({
-        where: reportsWhere
+      // 4. Process block statistics
+      const blockMap = {};
+      assignments.forEach(a => {
+        if (a.block_id) {
+          blockMap[a.block_id] = {
+            block_id: a.block.block_number,
+            block_name: a.block.name || `Block ${a.block.block_number}`,
+            pending_approvals: 0,
+            in_progress: 0,
+            overdue: 0
+          };
+        }
       });
 
-      // Check for SLA violations
-      const slaViolations = await this.calculateSLAViolations(reportsWhere);
+      blockStatsRaw.forEach(stat => {
+        const entry = blockMap[stat.block_id];
+        if (!entry) return;
+        if (stat.status === 'submitted') {
+          entry.pending_approvals += stat._count;
+        } else if (['approved', 'assigned', 'in_progress'].includes(stat.status)) {
+          entry.in_progress += stat._count;
+        }
+      });
 
-      const statistics = {
-        total_reports: totalReports,
-        pending_review: pendingReports.length,
-        under_review: underReviewReports.length,
-        approved: approvedReports.length,
-        rejected: rejectedReports.length,
-        sla_violations: slaViolations
+      overdueStatsRaw.forEach(stat => {
+        const entry = blockMap[stat.block_id];
+        if (entry) {
+          entry.overdue = stat._count;
+        }
+      });
+
+      // 5. Calculate SLA compliance
+      const slaViolations = await this.calculateSLAViolationsCount(reportsWhere);
+      const slaComplianceRate = totalReports > 0
+        ? Math.round(((totalReports - slaViolations) / totalReports) * 100)
+        : 100;
+
+      // 6. Populate duplicates for pending reports
+      const reportsWithDuplicates = await Promise.all(pendingReports.map(async (report) => {
+        const duplicateResult = await duplicateDetectionService.checkForDuplicates({
+          location: { type: report.location_type, block_id: report.block_id, room_number: report.room_number },
+          equipment_description: report.equipment_description,
+          problem_description: report.problem_description,
+          category: report.category
+        }).catch(() => ({ duplicates: [] }));
+
+        return {
+          ticket_id: report.ticket_id,
+          category: report.category,
+          location: report.location_type === 'specific'
+            ? `Block ${report.block?.block_number || '?'}${report.room_number ? ', Room ' + report.room_number : ''}`
+            : (report.location_description || 'General Location'),
+          problem_summary: report.equipment_description,
+          submitted_at: report.created_at,
+          submitted_by: report.submitter?.full_name || 'Anonymous',
+          photos_count: report.photos?.length || 0,
+          possible_duplicates: (duplicateResult.duplicates || []).map(d => ({
+            ticket_id: d.ticket_id,
+            status: d.status
+          }))
+        };
+      }));
+
+      const responseData = {
+        assigned_blocks: Object.values(blockMap),
+        pending_reports: reportsWithDuplicates,
+        stats: {
+          total_pending: totalPending,
+          approved_today: approvedToday,
+          sla_compliance_rate: Math.min(100, Math.max(0, slaComplianceRate))
+        }
       };
 
-      return successResponse(res, {
-        assignments: assignments.map(a => ({
-          block_id: a.block_id,
-          block_number: a.block?.block_number || null,
-          block_name: a.block?.name || 'Location Not Specified',
-          assigned_at: a.assigned_at
-        })),
-        reports: {
-          pending_review: pendingReports,
-          under_review: underReviewReports,
-          approved: approvedReports,
-          rejected: rejectedReports
-        },
-        statistics
-      }, 'Coordinator dashboard retrieved successfully');
+      console.log(`[Dashboard] Finished in ${Date.now() - startTime}ms`);
+      return res.status(200).json(successResponse('Coordinator dashboard retrieved successfully', responseData));
 
     } catch (error) {
       console.error('Error getting coordinator dashboard:', error);
-      return errorResponse(res, 'Failed to retrieve coordinator dashboard', 'DASHBOARD_ERROR', 500);
+      return res.status(500).json(errorResponse('Failed to retrieve coordinator dashboard', 'DASHBOARD_ERROR'));
     }
   }
 
   /**
-   * Review a report (approve, reject, or set under review)
-   * @route POST /coordinator/reports/:id/review
-   * @access Private (Coordinators only)
+   * coordinator: Review & Approve/Reject Report
+   * POST /coordinator/reports/:ticket_id/review
    */
   async reviewReport(req, res) {
     try {
-      const { id: reportId } = req.params;
-      const { action, priority, rejection_reason, assigned_to, notes } = req.body;
-      const coordinatorId = req.user.userId; // Changed from req.user.id to req.user.userId
+      const { ticket_id } = req.params;
+      const { action, priority, rejection_reason } = req.body;
+      const coordinatorId = req.user.userId || req.user.id;
 
-      // Validate required fields
-      if (!action || !['approve', 'reject', 'review'].includes(action)) {
-        return errorResponse(res, 'Valid action is required (approve, reject, or review)', 'VALIDATION_ERROR', 400);
+      if (!action || !['approve', 'reject', 'reviewing'].includes(action)) {
+        return res.status(400).json(errorResponse('Valid action is required (approve, reject, or reviewing)', 'VALID_002'));
       }
 
-      // Get the report to validate coordinator access
-      const report = await reportService.getReportById(reportId);
-      
-      // Validate coordinator has access to this report
-      const hasAccess = await workflowService.validateCoordinatorAccess(coordinatorId, report);
-      if (!hasAccess) {
-        return errorResponse(res, 'You do not have access to review this report', 'ACCESS_DENIED', 403);
+      if (action === 'approve' && (!priority || !['emergency', 'high', 'medium', 'low'].includes(priority))) {
+        return res.status(400).json(errorResponse('Valid priority is required for approval', 'VALID_003'));
+      }
+
+      if (action === 'reject' && (!rejection_reason || rejection_reason.trim().length < 5)) {
+        return res.status(400).json(errorResponse('Valid rejection reason is required for rejection', 'VALID_002'));
+      }
+
+      const report = await prisma.report.findUnique({
+        where: { ticket_id },
+        include: { block: true }
+      });
+
+      if (!report) {
+        return res.status(404).json(notFoundResponse('Report'));
+      }
+
+      // Permission check
+      const assignments = await prisma.coordinatorAssignment.findMany({
+        where: { coordinator_id: coordinatorId }
+      });
+
+      const hasAccess = assignments.some(a => a.block_id === report.block_id || a.block_id === null);
+      if (!hasAccess && req.user.role !== 'admin') {
+        return res.status(403).json(errorResponse('You do not have access to this report', 'REPORT_003'));
       }
 
       let targetStatus;
-      let transitionData = { notes };
+      let transitionData = {};
 
-      // Determine target status and required data based on action
-      switch (action) {
-        case 'review':
-          targetStatus = 'under_review';
-          break;
-
-        case 'approve':
-          if (!priority || !['emergency', 'high', 'medium', 'low'].includes(priority)) {
-            return errorResponse(res, 'Valid priority is required when approving (emergency, high, medium, low)', 'VALIDATION_ERROR', 400);
-          }
-          targetStatus = 'approved';
-          transitionData.priority = priority;
-          
-          // If assigned_to is provided, also assign the report
-          if (assigned_to) {
-            // Validate the assignee exists and has appropriate role
-            const assignee = await userService.getUserById(assigned_to);
-            if (!assignee) {
-              return errorResponse(res, 'Assigned user not found', 'USER_NOT_FOUND', 404);
-            }
-
-            // Check if assignee role matches report category
-            const requiredRole = report.category === 'electrical' ? 'electrical_fixer' : 'mechanical_fixer';
-            if (assignee.role !== requiredRole && assignee.role !== 'admin') {
-              return errorResponse(res, `Assignee must have role ${requiredRole} for ${report.category} reports`, 'INVALID_ASSIGNEE', 400);
-            }
-
-            transitionData.assigned_to = assigned_to;
-            targetStatus = 'assigned'; // Skip approved status and go directly to assigned
-          }
-          break;
-
-        case 'reject':
-          if (!rejection_reason || rejection_reason.trim().length < 10) {
-            return errorResponse(res, 'Rejection reason is required and must be at least 10 characters', 'VALIDATION_ERROR', 400);
-          }
-          targetStatus = 'rejected';
-          transitionData.rejection_reason = rejection_reason.trim();
-          break;
+      if (action === 'approve') {
+        targetStatus = 'approved';
+        transitionData.priority = priority;
+        transitionData.notes = req.body.notes || 'Report approved';
+      } else if (action === 'reject') {
+        targetStatus = 'rejected';
+        transitionData.rejection_reason = rejection_reason;
+        transitionData.notes = rejection_reason;
+      } else if (action === 'reviewing') {
+        targetStatus = 'under_review';
+        transitionData.notes = req.body.notes || 'Report moved to review';
       }
 
-      // Execute the workflow transition
-      const result = await workflowService.executeTransition(
-        reportId,
+      await workflowService.executeTransition(
+        report.id,
         targetStatus,
         coordinatorId,
         req.user.role,
         transitionData
       );
 
-      // Create notification for the reporter
-      await this.createReviewNotification(result.report, action, coordinatorId);
+      let sla_deadline = null;
+      if (action === 'approve') {
+        const slaHours = { emergency: 2, high: 24, medium: 72, low: 168 };
+        const deadline = new Date(report.created_at);
+        deadline.setHours(deadline.getHours() + (slaHours[priority] || 168));
+        sla_deadline = deadline.toISOString();
+      }
 
-      return successResponse(res, {
-        report: result.report,
-        transition: result.transition,
-        message: `Report ${action}ed successfully`
-      }, `Report ${action}ed successfully`);
+      const responseData = {
+        ticket_id: report.ticket_id,
+        new_status: targetStatus,
+        priority: priority || report.priority,
+        sla_deadline: sla_deadline,
+        message: action === 'approve' ? 'Report approved and assigned to maintenance queue' : `Report ${action}ed successfully`
+      };
+
+      return res.status(200).json(successResponse(responseData.message, responseData));
 
     } catch (error) {
       console.error('Error reviewing report:', error);
-      
-      if (error.message.includes('not found')) {
-        return errorResponse(res, 'Report not found', 'REPORT_NOT_FOUND', 404);
-      }
-      
-      if (error.message.includes('transition') || error.message.includes('authorized')) {
-        return errorResponse(res, error.message, 'WORKFLOW_ERROR', 400);
-      }
-
-      return errorResponse(res, 'Failed to review report', 'REVIEW_ERROR', 500);
+      return res.status(500).json(errorResponse(error.message || 'Failed to review report', 'SYSTEM_001'));
     }
   }
 
   /**
-   * Get available fixers for assignment
-   * @route GET /coordinator/fixers
-   * @access Private (Coordinators only)
+   * coordinator: Get Reports for Assigned Blocks
+   * GET /coordinator/reports
+   */
+  async getAssignedReports(req, res) {
+    try {
+      const coordinatorId = req.user.userId || req.user.id;
+      const result = await reportService.getReports(req.query, coordinatorId, 'coordinator');
+
+      // Transform reports in the result
+      if (result.reports) {
+        result.reports = result.reports.map(this._transformReport);
+      }
+
+      return res.status(200).json(successResponse('Reports retrieved successfully', result));
+    } catch (error) {
+      console.error('Error getting assigned reports:', error);
+      return res.status(500).json(errorResponse('Failed to retrieve assigned reports', 'SYSTEM_001'));
+    }
+  }
+
+  /**
+   * coordinator: Get Available Fixers
+   * GET /coordinator/fixers
    */
   async getAvailableFixers(req, res) {
     try {
       const { category } = req.query;
-
-      if (!category || !['electrical', 'mechanical'].includes(category)) {
-        return errorResponse(res, 'Valid category is required (electrical or mechanical)', 'VALIDATION_ERROR', 400);
+      let where = { role: { in: ['electrical_fixer', 'mechanical_fixer'] }, is_active: true };
+      if (category) {
+        where.role = category === 'electrical' ? 'electrical_fixer' : 'mechanical_fixer';
       }
 
-      const requiredRole = category === 'electrical' ? 'electrical_fixer' : 'mechanical_fixer';
-
-      // Get active fixers for the category
       const fixers = await prisma.user.findMany({
-        where: {
-          role: { in: [requiredRole, 'admin'] },
-          is_active: true
-        },
+        where,
         select: {
-          id: true,
-          full_name: true,
-          email: true,
-          role: true
-        },
-        orderBy: {
-          full_name: 'asc'
-        }
-      });
-
-      // Get current workload for each fixer
-      const fixersWithWorkload = await Promise.all(
-        fixers.map(async (fixer) => {
-          const activeReports = await prisma.report.count({
-            where: {
-              assigned_to: fixer.id,
-              status: { in: ['assigned', 'in_progress'] }
-            }
-          });
-
-          return {
-            ...fixer,
-            active_reports: activeReports
-          };
-        })
-      );
-
-      // Sort by workload (ascending) to show least busy fixers first
-      fixersWithWorkload.sort((a, b) => a.active_reports - b.active_reports);
-
-      return successResponse(res, {
-        fixers: fixersWithWorkload,
-        category
-      }, 'Available fixers retrieved successfully');
-
-    } catch (error) {
-      console.error('Error getting available fixers:', error);
-      return errorResponse(res, 'Failed to retrieve available fixers', 'FIXERS_ERROR', 500);
-    }
-  }
-
-  /**
-   * Get reports for assigned blocks with filtering
-   * @route GET /coordinator/reports
-   * @access Private (Coordinators only)
-   */
-  async getAssignedReports(req, res) {
-    try {
-      const coordinatorId = req.user.userId; // Changed from req.user.id to req.user.userId
-      const filters = req.query;
-
-      // Use the existing report service with coordinator filtering
-      const result = await reportService.getReports(filters, coordinatorId, 'coordinator');
-
-      return successResponse(res, result, 'Reports retrieved successfully');
-
-    } catch (error) {
-      console.error('Error getting assigned reports:', error);
-      return errorResponse(res, 'Failed to retrieve assigned reports', 'REPORTS_ERROR', 500);
-    }
-  }
-
-  /**
-   * Get reports requiring coordinator attention (pending + under review)
-   * @route GET /coordinator/reports/pending
-   * @access Private (Coordinators only)
-   */
-  async getPendingReports(req, res) {
-    try {
-      const coordinatorId = req.user.userId; // Changed from req.user.id to req.user.userId
-      const { page = 1, limit = 20, category, priority } = req.query;
-
-      // Get coordinator's assigned blocks
-      const assignments = await prisma.coordinatorAssignment.findMany({
-        where: { coordinator_id: coordinatorId }
-      });
-
-      const assignedBlockIds = assignments
-        .map(a => a.block_id)
-        .filter(Boolean);
-      const hasGeneralAssignment = assignments.some(a => a.block_id === null);
-
-      // Build where condition
-      let whereCondition = {
-        status: { in: ['submitted', 'under_review'] }
-      };
-
-      if (hasGeneralAssignment && assignedBlockIds.length > 0) {
-        whereCondition.OR = [
-          { block_id: { in: assignedBlockIds } },
-          { location_type: 'general' }
-        ];
-      } else if (hasGeneralAssignment) {
-        whereCondition.location_type = 'general';
-      } else if (assignedBlockIds.length > 0) {
-        whereCondition.block_id = { in: assignedBlockIds };
-      } else {
-        // No assignments
-        return successResponse(res, {
-          reports: [],
-          pagination: { page: 1, limit: 20, total: 0, pages: 0 }
-        }, 'No pending reports found');
-      }
-
-      // Apply additional filters
-      if (category) whereCondition.category = category;
-      if (priority) whereCondition.priority = priority;
-
-      // Get reports with pagination
-      const [reports, total] = await Promise.all([
-        prisma.report.findMany({
-          where: whereCondition,
-          include: {
-            submitter: {
-              select: {
-                id: true,
-                full_name: true,
-                email: true
-              }
-            },
-            block: {
-              select: {
-                id: true,
-                block_number: true,
-                name: true
-              }
-            },
-            photos: {
-              select: {
-                id: true,
-                filename: true,
-                thumbnail_path: true
-              }
-            },
-            workflow_history: {
-              include: {
-                user: {
-                  select: {
-                    full_name: true,
-                    role: true
-                  }
-                }
-              },
-              orderBy: {
-                created_at: 'desc'
-              },
-              take: 3 // Last 3 workflow entries
-            }
-          },
-          orderBy: [
-            { status: 'asc' }, // submitted first, then under_review
-            { created_at: 'asc' } // oldest first
-          ],
-          skip: (page - 1) * limit,
-          take: parseInt(limit)
-        }),
-        prisma.report.count({ where: whereCondition })
-      ]);
-
-      return successResponse(res, {
-        reports,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total,
-          pages: Math.ceil(total / limit)
-        }
-      }, 'Pending reports retrieved successfully');
-
-    } catch (error) {
-      console.error('Error getting pending reports:', error);
-      return errorResponse(res, 'Failed to retrieve pending reports', 'PENDING_REPORTS_ERROR', 500);
-    }
-  }
-
-  /**
-   * Calculate SLA violations for coordinator's reports
-   * @param {object} whereCondition - Base where condition for reports
-   * @returns {Promise<number>} Number of SLA violations
-   */
-  async calculateSLAViolations(whereCondition) {
-    try {
-      const reports = await prisma.report.findMany({
-        where: {
-          ...whereCondition,
-          priority: { not: null },
-          status: { not: { in: ['closed', 'rejected'] } }
-        },
-        select: {
-          priority: true,
-          created_at: true
-        }
-      });
-
-      const prioritySLA = {
-        emergency: 2,   // 2 hours
-        high: 24,       // 24 hours
-        medium: 72,     // 72 hours (3 days)
-        low: 168        // 168 hours (7 days)
-      };
-
-      let violationsCount = 0;
-      const now = new Date();
-
-      reports.forEach(report => {
-        const slaHours = prioritySLA[report.priority];
-        const hoursElapsed = (now - new Date(report.created_at)) / (1000 * 60 * 60);
-        
-        if (hoursElapsed > slaHours) {
-          violationsCount++;
-        }
-      });
-
-      return violationsCount;
-    } catch (error) {
-      console.error('Error calculating SLA violations:', error);
-      return 0;
-    }
-  }
-
-  /**
-   * Create notification for report review action
-   * @param {object} report - Report object
-   * @param {string} action - Review action (approve, reject, review)
-   * @param {string} coordinatorId - Coordinator ID
-   * @returns {Promise<void>}
-   */
-  async createReviewNotification(report, action, coordinatorId) {
-    try {
-      let notificationType = 'info';
-      let title = '';
-      let message = '';
-
-      switch (action) {
-        case 'approve':
-          notificationType = 'info';
-          title = 'Report Approved';
-          message = `Your report ${report.ticket_id} has been approved and will be assigned to a maintenance team.`;
-          break;
-        case 'reject':
-          notificationType = 'warning';
-          title = 'Report Rejected';
-          message = `Your report ${report.ticket_id} has been rejected. Reason: ${report.rejection_reason}`;
-          break;
-        case 'review':
-          notificationType = 'info';
-          title = 'Report Under Review';
-          message = `Your report ${report.ticket_id} is now under review by a coordinator.`;
-          break;
-      }
-
-      await prisma.notification.create({
-        data: {
-          user_id: report.submitted_by,
-          report_id: report.id,
-          type: notificationType,
-          title,
-          message,
-          data: {
-            action,
-            coordinator_id: coordinatorId,
-            priority: report.priority
+          id: true, full_name: true, email: true, role: true,
+          _count: {
+            select: { assigned_reports: { where: { status: { in: ['assigned', 'in_progress'] } } } }
           }
         }
       });
+
+      const transformedFixers = fixers.map(f => ({
+        id: f.id, full_name: f.full_name, email: f.email, role: f.role,
+        active_reports: f._count.assigned_reports
+      })).sort((a, b) => a.active_reports - b.active_reports);
+
+      return res.status(200).json(successResponse('Available fixers retrieved successfully', { fixers: transformedFixers }));
     } catch (error) {
-      console.error('Error creating review notification:', error);
+      console.error('Error getting available fixers:', error);
+      return res.status(500).json(errorResponse('Failed to retrieve available fixers', 'SYSTEM_001'));
+    }
+  }
+
+  /**
+   * coordinator: Get Pending Reports
+   * GET /coordinator/reports/pending
+   */
+  async getPendingReports(req, res) {
+    try {
+      const coordinatorId = req.user.userId || req.user.id;
+      const filters = { ...req.query, status: 'submitted' };
+      const result = await reportService.getReports(filters, coordinatorId, 'coordinator');
+
+      // Transform reports in the result
+      if (result.reports) {
+        result.reports = result.reports.map(this._transformReport);
+      }
+
+      return res.status(200).json(successResponse('Pending reports retrieved successfully', result));
+    } catch (error) {
+      console.error('Error getting pending reports:', error);
+      return res.status(500).json(errorResponse('Failed to retrieve pending reports', 'SYSTEM_001'));
+    }
+  }
+
+  /**
+   * coordinator: Get a specific report by ticket ID
+   * GET /coordinator/reports/:ticket_id
+   */
+  async getReport(req, res) {
+    try {
+      const { ticket_id } = req.params;
+      const coordinatorId = req.user.userId || req.user.id;
+
+      const report = await prisma.report.findUnique({
+        where: { ticket_id },
+        include: {
+          submitter: {
+            select: { id: true, full_name: true, email: true, role: true }
+          },
+          block: true,
+          photos: true,
+          workflow_history: {
+            include: {
+              user: { select: { full_name: true, role: true } }
+            },
+            orderBy: { created_at: 'desc' }
+          },
+          assignee: {
+            select: { id: true, full_name: true, email: true, role: true }
+          }
+        }
+      });
+
+      if (!report) {
+        return res.status(404).json(notFoundResponse('Report'));
+      }
+
+      // Quick access check
+      const assignments = await prisma.coordinatorAssignment.findMany({
+        where: { coordinator_id: coordinatorId }
+      });
+      const hasAccess = assignments.some(a => a.block_id === report.block_id || a.block_id === null);
+      if (!hasAccess && req.user.role !== 'admin') {
+        return res.status(403).json(errorResponse('Access denied to this report', 'REPORT_003'));
+      }
+
+      const transformedReport = this._transformReport(report);
+      return res.status(200).json(successResponse('Report retrieved successfully', transformedReport));
+    } catch (error) {
+      console.error('Error getting report details:', error);
+      return res.status(500).json(errorResponse('Failed to retrieve report details', 'SYSTEM_001'));
+    }
+  }
+
+  /**
+   * Helper: Transform database report to API format
+   */
+  _transformReport(report) {
+    if (!report) return null;
+
+    // Define priority based SLA hours
+    const slaHours = { emergency: 2, high: 24, medium: 72, low: 168 };
+    const deadline = report.priority ? new Date(new Date(report.created_at).getTime() + (slaHours[report.priority] * 60 * 60 * 1000)) : null;
+    const remainingHours = deadline ? (deadline.getTime() - Date.now()) / (60 * 60 * 1000) : null;
+
+    return {
+      ticket_id: report.ticket_id,
+      category: report.category,
+      location: {
+        type: report.location_type,
+        block_id: report.block_id,
+        block_name: report.block ? (report.block.name || `Block ${report.block.block_number}`) : null,
+        room_number: report.room_number,
+        description: report.location_description
+      },
+      equipment_description: report.equipment_description,
+      problem_description: report.problem_description,
+      status: report.status,
+      priority: report.priority,
+      submitted_at: report.created_at,
+      submitted_by: report.submitter ? {
+        name: report.submitter.full_name,
+        role: report.submitter.role,
+        email: report.submitter.email
+      } : { name: 'Unknown', role: 'reporter' },
+      photos: (report.photos || []).map(p => ({
+        id: p.id,
+        url: `/uploads/photos/${p.filename}`,
+        thumbnail_url: p.thumbnail_path ? `/uploads/photos/${p.filename}?thumbnail=true` : `/uploads/photos/${p.filename}`
+      })),
+      workflow: (report.workflow_history || []).map(h => ({
+        action: h.action,
+        by: h.user ? h.user.full_name : 'System',
+        at: h.created_at,
+        notes: h.notes
+      })),
+      sla: deadline ? {
+        deadline: deadline.toISOString(),
+        remaining_hours: parseFloat(remainingHours.toFixed(1))
+      } : undefined,
+      assignee: report.assignee ? {
+        name: report.assignee.full_name,
+        email: report.assignee.email,
+        role: report.assignee.role
+      } : undefined
+    };
+  }
+
+  /**
+   * coordinator: Get count of pending reports
+   * GET /coordinator/pending-count
+   */
+  async getPendingCount(req, res) {
+    try {
+      const coordinatorId = req.user.userId || req.user.id;
+
+      // Get coordinator's assigned blocks
+      const assignments = await prisma.coordinatorAssignment.findMany({
+        where: { coordinator_id: coordinatorId },
+        select: { block_id: true }
+      });
+
+      const assignedBlockIds = assignments.map(a => a.block_id).filter(Boolean);
+      const hasGeneralAssignment = assignments.some(a => a.block_id === null);
+
+      let where = { status: 'submitted' };
+      if (hasGeneralAssignment && assignedBlockIds.length > 0) {
+        where.OR = [{ block_id: { in: assignedBlockIds } }, { location_type: 'general' }];
+      } else if (hasGeneralAssignment) {
+        where.location_type = 'general';
+      } else if (assignedBlockIds.length > 0) {
+        where.block_id = { in: assignedBlockIds };
+      } else {
+        return res.status(200).json(successResponse('Pending count retrieved', { count: 0 }));
+      }
+
+      const count = await prisma.report.count({ where });
+      return res.status(200).json(successResponse('Pending count retrieved', { count }));
+    } catch (error) {
+      console.error('Error getting pending count:', error);
+      return res.status(500).json(errorResponse('Failed to retrieve pending count', 'SYSTEM_001'));
+    }
+  }
+
+  /**
+   * Helper: Calculate SLA violations count
+   */
+  async calculateSLAViolationsCount(whereCondition) {
+    try {
+      const slaLimits = { emergency: 2, high: 24, medium: 72, low: 168 };
+      const now = new Date();
+      const counts = await Promise.all(
+        Object.entries(slaLimits).map(([priority, hours]) => {
+          const cutoff = new Date(now.getTime() - hours * 60 * 60 * 1000);
+          return prisma.report.count({
+            where: {
+              ...whereCondition,
+              priority: priority,
+              status: { notIn: ['completed', 'closed', 'rejected'] },
+              created_at: { lt: cutoff }
+            }
+          });
+        })
+      );
+      return counts.reduce((acc, c) => acc + c, 0);
+    } catch (error) {
+      console.error('Error calculating SLA violations:', error);
+      return 0;
     }
   }
 }

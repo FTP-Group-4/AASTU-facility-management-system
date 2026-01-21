@@ -10,7 +10,6 @@ const { validate, paramSchemas, bodySchemas } = require('../middleware/validatio
 
 /**
  * @route GET /coordinator/dashboard
- * @desc Get coordinator dashboard with assigned reports and statistics
  * @access Private (Coordinators only)
  */
 router.get('/dashboard',
@@ -20,43 +19,17 @@ router.get('/dashboard',
 );
 
 /**
- * @route POST /coordinator/reports/:id/review
- * @desc Review a report (approve, reject, or set under review)
+ * @route POST /coordinator/reports/:ticket_id/review
  * @access Private (Coordinators only)
  */
-router.post('/reports/:id/review',
+router.post('/reports/:ticket_id/review',
   authenticate,
   authorize(['coordinator']),
-  validate(paramSchemas.reportId, 'params'),
-  validate(bodySchemas.reviewReport, 'body'),
   coordinatorController.reviewReport
 );
 
 /**
- * @route GET /coordinator/fixers
- * @desc Get available fixers for assignment
- * @access Private (Coordinators only)
- */
-router.get('/fixers',
-  authenticate,
-  authorize(['coordinator']),
-  coordinatorController.getAvailableFixers
-);
-
-/**
- * @route GET /coordinator/reports
- * @desc Get reports for assigned blocks with filtering
- * @access Private (Coordinators only)
- */
-router.get('/reports',
-  authenticate,
-  authorize(['coordinator']),
-  coordinatorController.getAssignedReports
-);
-
-/**
  * @route GET /coordinator/reports/pending
- * @desc Get reports requiring coordinator attention
  * @access Private (Coordinators only)
  */
 router.get('/reports/pending',
@@ -66,15 +39,33 @@ router.get('/reports/pending',
 );
 
 /**
- * @route GET /coordinators/:id/blocks
- * @desc Get blocks assigned to a coordinator
- * @access Private (Coordinators and Admins)
+ * @route GET /coordinator/reports/:ticket_id
+ * @access Private (Coordinators only)
  */
-router.get('/:id/blocks',
+router.get('/reports/:ticket_id',
   authenticate,
-  authorize(['coordinator', 'admin']),
-  validate(paramSchemas.userId, 'params'),
-  blockController.getCoordinatorBlocks
+  authorize(['coordinator']),
+  coordinatorController.getReport
+);
+
+/**
+ * @route GET /coordinator/pending-count
+ * @access Private (Coordinators only)
+ */
+router.get('/pending-count',
+  authenticate,
+  authorize(['coordinator']),
+  coordinatorController.getPendingCount
+);
+
+/**
+ * @route GET /coordinator/reports
+ * @access Private (Coordinators only)
+ */
+router.get('/reports',
+  authenticate,
+  authorize(['coordinator']),
+  coordinatorController.getAssignedReports
 );
 
 module.exports = router;

@@ -1,53 +1,30 @@
 import { api } from '../../api/axiosInstance';
-import type { 
-  ReportFilters, 
-  ReportsResponse, 
+import type {
+  ReportFilters,
+  ReportsResponse,
   Report,
-  ReportPriority 
 } from '../../types/report';
-import type { ReportApiResponse, ReviewReportRequest, ReviewReportResponse } from './types';
-
-export interface CoordinatorDashboardResponse {
-  assigned_blocks: Array<{
-    block_id: number;
-    block_name: string;
-    pending_approvals: number;
-    in_progress: number;
-    overdue: number;
-  }>;
-  pending_reports: Array<{
-    ticket_id: string;
-    category: 'electrical' | 'mechanical';
-    location: string;
-    problem_summary: string;
-    submitted_at: string;
-    submitted_by: string;
-    photos_count: number;
-    possible_duplicates?: Array<{
-      ticket_id: string;
-      status: string;
-    }>;
-  }>;
-  stats: {
-    total_pending: number;
-    approved_today: number;
-    sla_compliance_rate: number;
-  };
-}
+import type {
+  ReportApiResponse,
+  ReviewReportRequest,
+  ReviewReportResponse,
+  CoordinatorDashboardResponse,
+  CoordinatorAnalyticsResponse
+} from './types';
 
 export const coordinatorApi = {
   // Get coordinator dashboard
   getDashboard: async (): Promise<CoordinatorDashboardResponse> => {
     const response = await api.get<ReportApiResponse<CoordinatorDashboardResponse>>(
       '/coordinator/dashboard'
-    );
-    return response.data.data;
+    ) as any;
+    return response.data;
   },
 
   // Get reports for assigned blocks
   getAssignedReports: async (filters?: ReportFilters): Promise<ReportsResponse> => {
     const params = new URLSearchParams();
-    
+
     if (filters?.status) params.append('status', filters.status);
     if (filters?.priority) params.append('priority', filters.priority);
     if (filters?.block_id) params.append('block_id', filters.block_id.toString());
@@ -58,8 +35,8 @@ export const coordinatorApi = {
 
     const response = await api.get<ReportApiResponse<ReportsResponse>>(
       `/coordinator/reports?${params.toString()}`
-    );
-    return response.data.data;
+    ) as any;
+    return response.data;
   },
 
   // Review and approve/reject report
@@ -67,21 +44,38 @@ export const coordinatorApi = {
     const response = await api.post<ReportApiResponse<ReviewReportResponse>>(
       `/coordinator/reports/${ticketId}/review`,
       data
-    );
-    return response.data.data;
+    ) as any;
+    return response.data;
   },
 
   // Get report details for coordinator
   getReportForReview: async (ticketId: string): Promise<Report> => {
-    const response = await api.get<ReportApiResponse<Report>>(`/coordinator/reports/${ticketId}`);
-    return response.data.data;
+    const response = await api.get<ReportApiResponse<Report>>(`/coordinator/reports/${ticketId}`) as any;
+    return response.data;
+  },
+
+  // Get analytics for assigned blocks
+  getAnalytics: async (filters?: {
+    block_id?: number;
+    period?: 'day' | 'week' | 'month' | 'quarter' | 'year',
+    metric?: string;
+  }): Promise<CoordinatorAnalyticsResponse> => {
+    const params = new URLSearchParams();
+    if (filters?.block_id) params.append('block_id', filters.block_id.toString());
+    if (filters?.period) params.append('period', filters.period);
+    if (filters?.metric) params.append('metric', filters.metric);
+
+    const response = await api.get<ReportApiResponse<CoordinatorAnalyticsResponse>>(
+      `/analytics?${params.toString()}`
+    ) as any;
+    return response.data;
   },
 
   // Get pending approvals count
   getPendingCount: async (): Promise<number> => {
     const response = await api.get<ReportApiResponse<{ count: number }>>(
       '/coordinator/pending-count'
-    );
-    return response.data.data.count;
+    ) as any;
+    return response.data.count;
   },
 };

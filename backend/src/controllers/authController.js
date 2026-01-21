@@ -14,7 +14,7 @@ const getRolePermissions = (role) => {
     mechanical_fixer: ['report:view_assigned', 'report:update_status', 'report:complete'],
     admin: ['*']
   };
-  
+
   return permissions[role] || [];
 };
 
@@ -81,7 +81,17 @@ class AuthController {
    */
   async refresh(req, res) {
     try {
-      const { refresh_token } = req.body;
+      let refresh_token = req.body.refresh_token;
+
+      // Also support Authorization header (Bearer token)
+      if (!refresh_token && req.headers.authorization) {
+        const parts = req.headers.authorization.split(' ');
+        if (parts.length === 2 && parts[0] === 'Bearer') {
+          refresh_token = parts[1];
+        } else {
+          refresh_token = req.headers.authorization; // Fallback if no 'Bearer ' prefix
+        }
+      }
 
       if (!refresh_token) {
         return res.status(400).json(errorResponse(
@@ -132,10 +142,10 @@ class AuthController {
       // 1. Add the token to a blacklist/revocation list
       // 2. Store blacklisted tokens in Redis or database
       // 3. Check blacklist in authentication middleware
-      
+
       // For now, we'll just return success as the client should discard the token
       const userId = req.user?.userId;
-      
+
       if (userId) {
         console.log(`User logout: ${userId} at ${new Date().toISOString()}`);
       }
@@ -148,7 +158,7 @@ class AuthController {
       ));
     } catch (error) {
       console.error('Logout error:', error);
-      
+
       res.status(500).json(errorResponse(
         'Logout failed',
         'AUTH_LOGOUT_FAILED'
@@ -178,7 +188,7 @@ class AuthController {
       ));
     } catch (error) {
       console.error('Token validation error:', error);
-      
+
       res.status(500).json(errorResponse(
         'Token validation failed',
         'AUTH_VALIDATION_FAILED'

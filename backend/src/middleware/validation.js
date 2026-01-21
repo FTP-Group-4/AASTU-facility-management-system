@@ -48,7 +48,7 @@ const authSchemas = {
   }),
 
   refreshToken: Joi.object({
-    refresh_token: Joi.string().required()
+    refresh_token: Joi.string().optional()
   }),
 
   createUser: Joi.object({
@@ -374,7 +374,7 @@ const paramSchemas = {
   userId: Joi.object({
     id: Joi.string().required()
   }),
-  
+
   blockId: Joi.object({
     id: Joi.alternatives().try(
       Joi.number().integer().min(1),

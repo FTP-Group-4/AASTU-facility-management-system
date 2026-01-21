@@ -41,11 +41,11 @@ const ReportCard = ({ report, compact = false }: ReportCardProps) => {
 
   const getSLAStatus = () => {
     if (!report.sla_deadline) return null;
-    
+
     const deadline = new Date(report.sla_deadline);
     const now = new Date();
     const hoursRemaining = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60);
-    
+
     if (hoursRemaining <= 2) return 'critical';
     if (hoursRemaining <= 12) return 'warning';
     return 'normal';
@@ -72,7 +72,7 @@ const ReportCard = ({ report, compact = false }: ReportCardProps) => {
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Building className="w-3 h-3" />
-                  {report.location.block_name || 'General Area'}
+                  {report.location?.block_name || (report.location?.block_id ? `Block ${report.location.block_id}` : 'General Area')}
                 </span>
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
@@ -81,7 +81,7 @@ const ReportCard = ({ report, compact = false }: ReportCardProps) => {
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <PriorityBadge priority={report.priority} size="sm" />
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -107,13 +107,13 @@ const ReportCard = ({ report, compact = false }: ReportCardProps) => {
             <PriorityBadge priority={report.priority} size="sm" />
             <StatusBadge status={report.status} size="sm" />
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-3">
             <span className="flex items-center gap-1">
               <Building className="w-4 h-4" />
-              {report.location.block_name 
-                ? `Block ${report.location.block_id}${report.location.room_number ? `, Room ${report.location.room_number}` : ''}`
-                : 'General Area'}
+              {report.location?.block_name
+                ? `${report.location.block_name}${report.location.room_number ? `, Room ${report.location.room_number}` : ''}`
+                : (report.location?.block_id ? `Block ${report.location.block_id}` : 'General Area')}
             </span>
             <span className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
@@ -124,7 +124,7 @@ const ReportCard = ({ report, compact = false }: ReportCardProps) => {
             )}
           </div>
         </div>
-        
+
         <Button
           variant="ghost"
           size="sm"
@@ -143,7 +143,7 @@ const ReportCard = ({ report, compact = false }: ReportCardProps) => {
             <AlertTriangle className="w-4 h-4 text-danger" />
             <span className="text-sm font-medium text-danger">SLA Critical</span>
           </div>
-          <SLAIndicator 
+          <SLAIndicator
             deadline={new Date(report.sla_deadline)}
             currentTime={new Date()}
             size="sm"
@@ -160,9 +160,9 @@ const ReportCard = ({ report, compact = false }: ReportCardProps) => {
             {report.ticket_id}
           </code>
         </div>
-        
+
         {report.sla_deadline && slaStatus !== 'critical' && (
-          <SLAIndicator 
+          <SLAIndicator
             deadline={new Date(report.sla_deadline)}
             currentTime={new Date()}
             size="sm"
