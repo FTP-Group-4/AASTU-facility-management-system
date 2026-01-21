@@ -1,15 +1,15 @@
 export type ReportCategory = 'electrical' | 'mechanical';
 export type ReportPriority = 'emergency' | 'high' | 'medium' | 'low';
-export type ReportStatus = 
-  | 'submitted' 
-  | 'pending_approval' 
-  | 'approved' 
-  | 'rejected' 
-  | 'assigned' 
-  | 'in_progress' 
-  | 'completed' 
-  | 'closed' 
-  | 'reopened' 
+export type ReportStatus =
+  | 'submitted'
+  | 'pending_approval'
+  | 'approved'
+  | 'rejected'
+  | 'assigned'
+  | 'in_progress'
+  | 'completed'
+  | 'closed'
+  | 'reopened'
   | 'reviewing';
 
 export interface Location {
