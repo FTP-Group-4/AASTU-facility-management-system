@@ -7,10 +7,21 @@ import {
   AlertCircle,
   Circle,
   RefreshCw,
-  Ban
+  Ban,
+  Eye
 } from 'lucide-react';
 
-export type StatusType = 'submitted' | 'pending' | 'approved' | 'assigned' | 'in-progress' | 'completed' | 'closed' | 'reopened' | 'rejected';
+export type StatusType = 
+  | 'submitted' 
+  | 'pending_approval' 
+  | 'approved' 
+  | 'rejected' 
+  | 'assigned' 
+  | 'in_progress' 
+  | 'completed' 
+  | 'closed' 
+  | 'reopened' 
+  | 'reviewing';
 
 export interface StatusBadgeProps extends HTMLAttributes<HTMLDivElement> {
   status: StatusType;
@@ -39,9 +50,15 @@ const StatusBadge = ({
       className: 'status-submitted',
       iconColor: 'text-status-submitted',
     },
-    pending: {
-      icon: Clock,
+    pending_approval: {
+      icon: Eye,
       text: 'Pending Approval',
+      className: 'status-pending',
+      iconColor: 'text-status-pending',
+    },
+    reviewing: {
+      icon: Clock,
+      text: 'Reviewing',
       className: 'status-pending',
       iconColor: 'text-status-pending',
     },
@@ -51,13 +68,19 @@ const StatusBadge = ({
       className: 'status-approved',
       iconColor: 'text-status-approved',
     },
+    rejected: {
+      icon: Ban,
+      text: 'Rejected',
+      className: 'status-rejected',
+      iconColor: 'text-status-rejected',
+    },
     assigned: {
       icon: PlayCircle,
       text: 'Assigned',
       className: 'status-assigned',
       iconColor: 'text-status-assigned',
     },
-    'in-progress': {
+    in_progress: {
       icon: RefreshCw,
       text: 'In Progress',
       className: 'status-in-progress',
@@ -80,12 +103,6 @@ const StatusBadge = ({
       text: 'Reopened',
       className: 'status-reopened',
       iconColor: 'text-status-reopened',
-    },
-    rejected: {
-      icon: Ban,
-      text: 'Rejected',
-      className: 'status-rejected',
-      iconColor: 'text-status-rejected',
     },
   };
 

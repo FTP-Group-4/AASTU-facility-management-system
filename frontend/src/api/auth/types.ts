@@ -31,6 +31,7 @@ export interface User {
   role: UserRole;
   full_name: string;
   phone?: string;
+  avatar?: string;
   department?: string;
   permissions: string[];
   created_at?: string;
