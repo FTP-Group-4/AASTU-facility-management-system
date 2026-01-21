@@ -7,7 +7,7 @@ import type {
   SubmitReportRequest,
   RatingRequest
 } from '../types/report';
-import { reportApiWithFiles } from '../api/reports/reportApiWithFiles'; // CHANGED: Import new API
+import { reportApiWithFiles } from '../api/reports/reportApiWithFiles';
 import { coordinatorApi } from '../api/reports/coordinatorApi';
 
 interface ReportStore {
@@ -32,6 +32,7 @@ interface ReportStore {
   submitReport: (data: SubmitReportRequest) => Promise<string>;
   deleteReport: (ticketId: string) => Promise<void>;
   submitRating: (ticketId: string, data: RatingRequest) => Promise<void>;
+  fetchCoordinatorReport: (ticketId: string) => Promise<void>;
 
   // Coordinator Actions
   fetchCoordinatorReports: (filters?: ReportFilters) => Promise<void>;
@@ -85,17 +86,11 @@ export const useReportStore = create<ReportStore>()(
       submitReport: async (data) => {
         set({ isLoading: true, error: null });
         try {
-          console.log('Store: Submitting report with', data.photos.length, 'files');
-          
-          // Validate at least one photo exists
           if (!data.photos || data.photos.length === 0) {
             throw new Error('At least one photo is required');
           }
-          
           const response = await reportApiWithFiles.submitReport(data);
-          console.log('Store: Submit response:', response);
 
-          // Add to local reports list
           const newReport: ReportSummary = {
             ticket_id: response.ticket_id,
             category: data.category,
@@ -117,7 +112,6 @@ export const useReportStore = create<ReportStore>()(
 
           return response.ticket_id;
         } catch (error: any) {
-          console.error('Store: Submit error:', error);
           set({ error: error.message, isLoading: false });
           throw error;
         }
@@ -141,8 +135,6 @@ export const useReportStore = create<ReportStore>()(
         set({ isLoading: true, error: null });
         try {
           await reportApiWithFiles.submitRating(ticketId, data);
-
-          // Update report status locally
           set((state) => ({
             reports: state.reports.map(r =>
               r.ticket_id === ticketId
@@ -165,7 +157,18 @@ export const useReportStore = create<ReportStore>()(
         }
       },
 
-      // Coordinator Actions
+      fetchCoordinatorReport: async (ticketId) => {
+        set({ isLoading: true, error: null });
+        try {
+          const report = await coordinatorApi.getReportForReview(ticketId);
+          set({ currentReport: report, isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+          throw error;
+        }
+      },
+
+      // Coordinator actions
       fetchCoordinatorReports: async (filters) => {
         set({ isLoading: true, error: null });
         try {
@@ -186,7 +189,6 @@ export const useReportStore = create<ReportStore>()(
             rejection_reason: reason,
           });
 
-          // Update report status locally
           const newStatus = action === 'approve' ? 'approved' :
             action === 'reject' ? 'rejected' : 'reviewing';
 
