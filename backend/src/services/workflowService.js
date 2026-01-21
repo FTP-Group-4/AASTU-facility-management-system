@@ -15,6 +15,7 @@ class WorkflowService {
         requiredRoles: ['coordinator', 'admin'],
         actions: {
           under_review: 'review',
+          approved: 'approve',
           rejected: 'reject'
         }
       },

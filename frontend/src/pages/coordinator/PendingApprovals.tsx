@@ -57,8 +57,8 @@ const PendingApprovals = () => {
                                 <h3 className="text-lg font-bold text-gray-900">{report.problem_summary}</h3>
                                 <div className="flex flex-wrap items-center text-xs text-gray-500 mt-2 gap-4">
                                     <span className="flex items-center"><MapPin className="w-3.5 h-3.5 mr-1 text-indigo-400" />
-                                        {report.location.block_name || `Block ${report.location.block_id}`}
-                                        {report.location.room_number ? `, Room ${report.location.room_number}` : ''}
+                                        {report.location?.block_name || (report.location?.block_id ? `Block ${report.location.block_id}` : 'N/A')}
+                                        {report.location?.room_number ? `, Room ${report.location.room_number}` : ''}
                                     </span>
                                     <span className="flex items-center"><Clock className="w-3.5 h-3.5 mr-1 text-indigo-400" />
                                         {new Date(report.submitted_at).toLocaleDateString()}

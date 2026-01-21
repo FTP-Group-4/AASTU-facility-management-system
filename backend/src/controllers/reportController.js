@@ -12,7 +12,7 @@ const { successResponse, errorResponse, notFoundResponse, forbiddenResponse } = 
  */
 function calculateSLADeadline(submittedAt, priority) {
   if (!priority) return null;
-  
+
   const slaHours = {
     'emergency': 2,
     'high': 24,
@@ -62,8 +62,8 @@ class ReportController {
 
       // Create report with duplicate detection
       const result = await reportService.createReportWithDuplicateCheck(
-        reportData, 
-        userId, 
+        reportData,
+        userId,
         ignoreDuplicates
       );
 
@@ -88,7 +88,7 @@ class ReportController {
       try {
         // Process photos
         const photoResults = await fileService.processMultiplePhotos(req.files);
-        
+
         // Prepare photo data for database
         const photoData = photoResults.map(photo => ({
           filename: photo.filename,
@@ -181,7 +181,7 @@ class ReportController {
       const userRole = req.user.role;
 
       let report;
-      
+
       // Check if ID is a ticket ID format (AASTU-FIX-...)
       if (id.startsWith('AASTU-FIX-')) {
         report = await reportService.getReportByTicketId(id);
@@ -197,9 +197,48 @@ class ReportController {
         ));
       }
 
+      // Transform report to include proper photo URLs
+      const transformedReport = {
+        ...report,
+        photos: (report.photos || []).map(p => ({
+          id: p.id,
+          url: `/uploads/photos/${p.filename}`,
+          thumbnail_url: p.thumbnail_path ? `/uploads/photos/${p.filename}?thumbnail=true` : `/uploads/photos/${p.filename}`,
+          original_name: p.original_name,
+          created_at: p.created_at
+        })),
+        location: {
+          type: report.location_type,
+          block_id: report.block_id,
+          block_name: report.block ? (report.block.name || `Block ${report.block.block_number}`) : null,
+          room_number: report.room_number,
+          description: report.location_description
+        },
+        submitted_by: report.submitter ? {
+          name: report.submitter.full_name,
+          role: report.submitter.role,
+          email: report.submitter.email
+        } : { name: 'Unknown', role: 'reporter' },
+        assignee: report.assignee ? {
+          name: report.assignee.full_name,
+          email: report.assignee.email,
+          role: report.assignee.role
+        } : undefined,
+        sla: report.priority ? {
+          deadline: calculateSLADeadline(report.created_at, report.priority),
+          remaining_hours: Math.max(0, (new Date(calculateSLADeadline(report.created_at, report.priority)) - new Date()) / (1000 * 60 * 60))
+        } : undefined,
+        workflow: (report.workflow_history || []).map(h => ({
+          action: h.action,
+          by: h.user ? h.user.full_name : 'System',
+          at: h.created_at,
+          notes: h.notes
+        }))
+      };
+
       res.status(200).json(successResponse(
         'Report retrieved successfully',
-        { report }
+        { report: transformedReport }
       ));
     } catch (error) {
       console.error('Get report error:', error);
@@ -223,7 +262,7 @@ class ReportController {
     try {
       const userId = req.user.userId;
       const userRole = req.user.role;
-      
+
       // Only reporters should use this endpoint
       if (userRole !== 'reporter') {
         return res.status(403).json(forbiddenResponse(
@@ -336,16 +375,16 @@ class ReportController {
 
       // Use workflow service to execute the transition
       const result = await workflowService.executeTransition(
-        id, 
-        status, 
-        userId, 
+        id,
+        status,
+        userId,
         userRole,
         transitionData
       );
 
       res.status(200).json(successResponse(
         'Report status updated successfully',
-        { 
+        {
           report: result.report,
           transition: result.transition
         }
@@ -383,7 +422,7 @@ class ReportController {
 
       // Get the report first to check permissions
       const report = await reportService.getReportById(id);
-      
+
       // Check access permissions
       const hasAccess = this.checkReportAccess(report, userId, userRole);
       if (!hasAccess) {
@@ -430,7 +469,7 @@ class ReportController {
 
       // Get the report first to check permissions
       const report = await reportService.getReportById(id);
-      
+
       // Check access permissions
       const hasAccess = this.checkReportAccess(report, userId, userRole);
       if (!hasAccess) {
@@ -516,11 +555,11 @@ class ReportController {
         return res.status(404).json(notFoundResponse('Report'));
       }
 
-      if (error.message.includes('You can only rate') || 
-          error.message.includes('completed reports') ||
-          error.message.includes('already been rated') ||
-          error.message.includes('Rating must be') ||
-          error.message.includes('Comment is required')) {
+      if (error.message.includes('You can only rate') ||
+        error.message.includes('completed reports') ||
+        error.message.includes('already been rated') ||
+        error.message.includes('Rating must be') ||
+        error.message.includes('Comment is required')) {
         return res.status(400).json(errorResponse(
           error.message,
           'RATING_ERROR'
@@ -546,7 +585,7 @@ class ReportController {
 
       // Get the report first to check permissions
       const report = await reportService.getReportById(id);
-      
+
       // Check access permissions
       const hasAccess = this.checkReportAccess(report, userId, userRole);
       if (!hasAccess) {
@@ -637,7 +676,7 @@ class ReportController {
           duplicates: duplicateResult.duplicates,
           warning_message: duplicateResult.warning_message,
           allow_anyway: duplicateResult.allow_anyway || true, // Always allow user to proceed
-          message: duplicateResult.has_duplicates 
+          message: duplicateResult.has_duplicates
             ? duplicateResult.warning_message
             : 'No similar reports found.'
         }
@@ -664,14 +703,14 @@ class ReportController {
 
       // Get the report first to check permissions
       let report;
-      
+
       // Check if ID is a ticket ID format (AASTU-FIX-...)
       if (id.startsWith('AASTU-FIX-')) {
         report = await reportService.getReportByTicketId(id);
       } else {
         report = await reportService.getReportById(id);
       }
-      
+
       // For now, allow access to all authenticated users
       // TODO: Implement proper access control based on user role and report ownership
 
@@ -756,8 +795,8 @@ class ReportController {
     if (userRole === 'reporter' && report.submitted_by === userId) return true;
 
     // Assigned fixer can access their assigned reports
-    if ((userRole === 'electrical_fixer' || userRole === 'mechanical_fixer') && 
-        report.assigned_to === userId) return true;
+    if ((userRole === 'electrical_fixer' || userRole === 'mechanical_fixer') &&
+      report.assigned_to === userId) return true;
 
     // Coordinator can access reports in their assigned blocks
     if (userRole === 'coordinator') {
@@ -795,9 +834,9 @@ class ReportController {
 
     // Reporter can only reopen completed reports
     if (userRole === 'reporter') {
-      return newStatus === 'reopened' && 
-             report.submitted_by === userId && 
-             report.status === 'completed';
+      return newStatus === 'reopened' &&
+        report.submitted_by === userId &&
+        report.status === 'completed';
     }
 
     return false;

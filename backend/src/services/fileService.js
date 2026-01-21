@@ -12,7 +12,7 @@ class FileService {
     this.allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
     this.maxPhotosPerReport = 3;
     this.initialized = false;
-    
+
     // Initialize directories synchronously to avoid async issues
     this.initializeDirectoriesSync();
   }
@@ -87,7 +87,7 @@ class FileService {
 
       // Create thumbnail
       const thumbnail = await sharp(fileBuffer)
-        .resize(200, 200, { 
+        .resize(200, 200, {
           fit: 'cover',
           position: 'center'
         })
@@ -108,8 +108,9 @@ class FileService {
         originalName: originalName,
         mimetype: 'image/jpeg', // Always JPEG after processing
         size: stats.size,
-        url: `/uploads/images/${filename}`,
-        thumbnailUrl: `/uploads/thumbnails/thumb_${filename}`,
+        url: `/uploads/photos/${filename}`,
+        // thumbnailUrl: `/uploads/thumbnails/thumb_${filename}`,
+        thumbnailUrl: `/uploads/photos/${filename}?thumbnail=true`,
         createdAt: new Date()
       };
     } catch (error) {
@@ -129,7 +130,7 @@ class FileService {
     }
 
     const processedPhotos = [];
-    
+
     for (const file of files) {
       const photo = await this.processAndSavePhoto(
         file.buffer,
@@ -186,24 +187,24 @@ class FileService {
     }
 
     if (files.length > this.maxPhotosPerReport) {
-      return { 
-        valid: false, 
-        error: `Maximum ${this.maxPhotosPerReport} photos allowed per report` 
+      return {
+        valid: false,
+        error: `Maximum ${this.maxPhotosPerReport} photos allowed per report`
       };
     }
 
     for (const file of files) {
       if (file.size > this.maxFileSize) {
-        return { 
-          valid: false, 
-          error: `File ${file.originalname} exceeds maximum size of 5MB` 
+        return {
+          valid: false,
+          error: `File ${file.originalname} exceeds maximum size of 5MB`
         };
       }
 
       if (!this.allowedMimeTypes.includes(file.mimetype)) {
-        return { 
-          valid: false, 
-          error: `File ${file.originalname} has invalid type. Allowed: JPEG, PNG, WebP` 
+        return {
+          valid: false,
+          error: `File ${file.originalname} has invalid type. Allowed: JPEG, PNG, WebP`
         };
       }
     }

@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Clock, User, AlertTriangle, Info, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useReportStore } from '../../stores/reportStore';
+import { getMediaUrl } from '../../lib/urlUtils';
 import type { ReportPriority } from '../../types/report';
 
 const ReviewReport = () => {
@@ -95,7 +96,7 @@ const ReviewReport = () => {
                             </span>
                             <span className="text-gray-400 text-sm">#{currentReport.ticket_id}</span>
                         </div>
-                        <h1 className="text-2xl font-bold text-gray-900">{currentReport.equipment_description || currentReport.problem_description.substring(0, 50)}</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">{currentReport.equipment_description || currentReport.problem_description?.substring(0, 50) || 'Unnamed Equipment'}</h1>
                     </div>
                     <div className="text-right">
                         <span className="text-[10px] font-bold text-gray-400 uppercase">Category</span>
@@ -119,8 +120,8 @@ const ReviewReport = () => {
                                     <div>
                                         <span className="block text-xs font-bold text-gray-400 uppercase">Location</span>
                                         <span className="font-medium text-sm">
-                                            {currentReport.location.block_name || `Block ${currentReport.location.block_id}`}
-                                            {currentReport.location.room_number ? `, Room ${currentReport.location.room_number}` : ''}
+                                            {currentReport.location?.block_name || (currentReport.location?.block_id ? `Block ${currentReport.location.block_id}` : 'General Location')}
+                                            {currentReport.location?.room_number ? `, Room ${currentReport.location.room_number}` : ''}
                                         </span>
                                     </div>
                                 </div>
@@ -128,7 +129,7 @@ const ReviewReport = () => {
                                     <Clock className="w-5 h-5 mr-3 text-indigo-400" />
                                     <div>
                                         <span className="block text-xs font-bold text-gray-400 uppercase">Submitted</span>
-                                        <span className="font-medium text-sm">{new Date(currentReport.submitted_at).toLocaleString()}</span>
+                                        <span className="font-medium text-sm">{currentReport.submitted_at ? new Date(currentReport.submitted_at).toLocaleString() : 'N/A'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -139,8 +140,8 @@ const ReviewReport = () => {
                                 <h3 className="font-bold text-gray-800 border-b pb-2 mb-4">Evidence Photos</h3>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     {currentReport.photos.map((photo, i) => (
-                                        <a key={photo.id || i} href={photo.url} target="_blank" rel="noopener noreferrer" className="rounded-lg overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity aspect-square block">
-                                            <img src={photo.url} alt="Report evidence" className="h-full w-full object-cover" />
+                                        <a key={photo.id || i} href={getMediaUrl(photo.url)} target="_blank" rel="noopener noreferrer" className="rounded-lg overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity aspect-square block">
+                                            <img src={getMediaUrl(photo.thumbnail_url || photo.url)} alt="Report evidence" className="h-full w-full object-cover" />
                                         </a>
                                     ))}
                                 </div>
@@ -156,8 +157,8 @@ const ReviewReport = () => {
                                     <User className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <p className="font-bold text-gray-900">{currentReport.submitted_by.name}</p>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">{currentReport.submitted_by.role}</p>
+                                    <p className="font-bold text-gray-900">{currentReport.submitted_by?.name || 'Unknown'}</p>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">{currentReport.submitted_by?.role || 'Reporter'}</p>
                                 </div>
                             </div>
                         </div>

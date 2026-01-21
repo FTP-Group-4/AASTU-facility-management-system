@@ -21,17 +21,17 @@ const ReporterDashboard = () => {
     const calculateStats = (reports: ReportSummary[]) => {
         return {
             total: reports.length,
-            pending: reports.filter(r => 
-                r.status === 'submitted' || 
+            pending: reports.filter(r =>
+                r.status === 'submitted' ||
                 r.status === 'pending_approval'
             ).length,
-            in_progress: reports.filter(r => 
-                r.status === 'approved' || 
-                r.status === 'assigned' || 
+            in_progress: reports.filter(r =>
+                r.status === 'approved' ||
+                r.status === 'assigned' ||
                 r.status === 'in_progress'
             ).length,
-            completed: reports.filter(r => 
-                r.status === 'completed' || 
+            completed: reports.filter(r =>
+                r.status === 'completed' ||
                 r.status === 'closed'
             ).length,
         };
@@ -41,15 +41,15 @@ const ReporterDashboard = () => {
         const fetchDashboardData = async () => {
             try {
                 setLoading(true);
-                
+
                 // Try to get reports with limit
                 const response = await reportApi.getMyReports({ limit: 5 });
-                
+
                 console.log('Dashboard API Response:', response);
-                
+
                 // Handle different response structures
                 let reports: ReportSummary[] = [];
-                
+
                 if (response && Array.isArray(response.reports)) {
                     // Structure: { reports: [], summary: {} }
                     reports = response.reports;
@@ -60,19 +60,19 @@ const ReporterDashboard = () => {
                     // Structure: { data: { reports: [], summary: {} } }
                     reports = response.reports || [];
                 }
-                
+
                 console.log('Parsed reports:', reports);
-                
+
                 // Calculate stats from reports
                 const calculatedStats = calculateStats(reports);
                 setStats(calculatedStats);
                 setRecentReports(reports);
                 setError(null);
-                
+
             } catch (err: any) {
                 console.error('Failed to fetch dashboard data:', err);
                 setError('Failed to load dashboard data. Please try again later.');
-                
+
                 // Set empty state
                 setStats({
                     total: 0,
@@ -197,9 +197,9 @@ const ReporterDashboard = () => {
                                                 {report.problem_summary || 'No description'}
                                             </h4>
                                             <p className="text-xs text-gray-500 mt-0.5">
-                                                {report.location?.block_name || 
-                                                 (report.location?.block_id ? `Block ${report.location.block_id}` : 'No location')} - 
-                                                {report.location?.room_number || report.location?.description || 'No room'} • {report.ticket_id}
+                                                {report.location?.block_name ||
+                                                    (report.location?.block_id ? `Block ${report.location.block_id}` : 'General Location')}
+                                                {report.location?.room_number ? ` - ${report.location.room_number}` : (report.location?.description ? ` - ${report.location.description}` : '')} • {report.ticket_id}
                                             </p>
                                         </div>
                                     </div>

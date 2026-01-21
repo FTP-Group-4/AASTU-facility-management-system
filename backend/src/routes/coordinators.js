@@ -29,6 +29,36 @@ router.post('/reports/:ticket_id/review',
 );
 
 /**
+ * @route GET /coordinator/reports/pending
+ * @access Private (Coordinators only)
+ */
+router.get('/reports/pending',
+  authenticate,
+  authorize(['coordinator']),
+  coordinatorController.getPendingReports
+);
+
+/**
+ * @route GET /coordinator/reports/:ticket_id
+ * @access Private (Coordinators only)
+ */
+router.get('/reports/:ticket_id',
+  authenticate,
+  authorize(['coordinator']),
+  coordinatorController.getReport
+);
+
+/**
+ * @route GET /coordinator/pending-count
+ * @access Private (Coordinators only)
+ */
+router.get('/pending-count',
+  authenticate,
+  authorize(['coordinator']),
+  coordinatorController.getPendingCount
+);
+
+/**
  * @route GET /coordinator/reports
  * @access Private (Coordinators only)
  */

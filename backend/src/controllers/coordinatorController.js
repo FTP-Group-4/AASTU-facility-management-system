@@ -18,6 +18,9 @@ class CoordinatorController {
     this.getAssignedReports = this.getAssignedReports.bind(this);
     this.getPendingReports = this.getPendingReports.bind(this);
     this.getAvailableFixers = this.getAvailableFixers.bind(this);
+    this.getReport = this.getReport.bind(this);
+    this.getPendingCount = this.getPendingCount.bind(this);
+    this._transformReport = this._transformReport.bind(this);
   }
 
   /**
@@ -251,11 +254,14 @@ class CoordinatorController {
       if (action === 'approve') {
         targetStatus = 'approved';
         transitionData.priority = priority;
+        transitionData.notes = req.body.notes || 'Report approved';
       } else if (action === 'reject') {
         targetStatus = 'rejected';
         transitionData.rejection_reason = rejection_reason;
+        transitionData.notes = rejection_reason;
       } else if (action === 'reviewing') {
         targetStatus = 'under_review';
+        transitionData.notes = req.body.notes || 'Report moved to review';
       }
 
       await workflowService.executeTransition(
@@ -298,6 +304,12 @@ class CoordinatorController {
     try {
       const coordinatorId = req.user.userId || req.user.id;
       const result = await reportService.getReports(req.query, coordinatorId, 'coordinator');
+
+      // Transform reports in the result
+      if (result.reports) {
+        result.reports = result.reports.map(this._transformReport);
+      }
+
       return res.status(200).json(successResponse('Reports retrieved successfully', result));
     } catch (error) {
       console.error('Error getting assigned reports:', error);
@@ -348,10 +360,156 @@ class CoordinatorController {
       const coordinatorId = req.user.userId || req.user.id;
       const filters = { ...req.query, status: 'submitted' };
       const result = await reportService.getReports(filters, coordinatorId, 'coordinator');
+
+      // Transform reports in the result
+      if (result.reports) {
+        result.reports = result.reports.map(this._transformReport);
+      }
+
       return res.status(200).json(successResponse('Pending reports retrieved successfully', result));
     } catch (error) {
       console.error('Error getting pending reports:', error);
       return res.status(500).json(errorResponse('Failed to retrieve pending reports', 'SYSTEM_001'));
+    }
+  }
+
+  /**
+   * coordinator: Get a specific report by ticket ID
+   * GET /coordinator/reports/:ticket_id
+   */
+  async getReport(req, res) {
+    try {
+      const { ticket_id } = req.params;
+      const coordinatorId = req.user.userId || req.user.id;
+
+      const report = await prisma.report.findUnique({
+        where: { ticket_id },
+        include: {
+          submitter: {
+            select: { id: true, full_name: true, email: true, role: true }
+          },
+          block: true,
+          photos: true,
+          workflow_history: {
+            include: {
+              user: { select: { full_name: true, role: true } }
+            },
+            orderBy: { created_at: 'desc' }
+          },
+          assignee: {
+            select: { id: true, full_name: true, email: true, role: true }
+          }
+        }
+      });
+
+      if (!report) {
+        return res.status(404).json(notFoundResponse('Report'));
+      }
+
+      // Quick access check
+      const assignments = await prisma.coordinatorAssignment.findMany({
+        where: { coordinator_id: coordinatorId }
+      });
+      const hasAccess = assignments.some(a => a.block_id === report.block_id || a.block_id === null);
+      if (!hasAccess && req.user.role !== 'admin') {
+        return res.status(403).json(errorResponse('Access denied to this report', 'REPORT_003'));
+      }
+
+      const transformedReport = this._transformReport(report);
+      return res.status(200).json(successResponse('Report retrieved successfully', transformedReport));
+    } catch (error) {
+      console.error('Error getting report details:', error);
+      return res.status(500).json(errorResponse('Failed to retrieve report details', 'SYSTEM_001'));
+    }
+  }
+
+  /**
+   * Helper: Transform database report to API format
+   */
+  _transformReport(report) {
+    if (!report) return null;
+
+    // Define priority based SLA hours
+    const slaHours = { emergency: 2, high: 24, medium: 72, low: 168 };
+    const deadline = report.priority ? new Date(new Date(report.created_at).getTime() + (slaHours[report.priority] * 60 * 60 * 1000)) : null;
+    const remainingHours = deadline ? (deadline.getTime() - Date.now()) / (60 * 60 * 1000) : null;
+
+    return {
+      ticket_id: report.ticket_id,
+      category: report.category,
+      location: {
+        type: report.location_type,
+        block_id: report.block_id,
+        block_name: report.block ? (report.block.name || `Block ${report.block.block_number}`) : null,
+        room_number: report.room_number,
+        description: report.location_description
+      },
+      equipment_description: report.equipment_description,
+      problem_description: report.problem_description,
+      status: report.status,
+      priority: report.priority,
+      submitted_at: report.created_at,
+      submitted_by: report.submitter ? {
+        name: report.submitter.full_name,
+        role: report.submitter.role,
+        email: report.submitter.email
+      } : { name: 'Unknown', role: 'reporter' },
+      photos: (report.photos || []).map(p => ({
+        id: p.id,
+        url: `/uploads/photos/${p.filename}`,
+        thumbnail_url: p.thumbnail_path ? `/uploads/photos/${p.filename}?thumbnail=true` : `/uploads/photos/${p.filename}`
+      })),
+      workflow: (report.workflow_history || []).map(h => ({
+        action: h.action,
+        by: h.user ? h.user.full_name : 'System',
+        at: h.created_at,
+        notes: h.notes
+      })),
+      sla: deadline ? {
+        deadline: deadline.toISOString(),
+        remaining_hours: parseFloat(remainingHours.toFixed(1))
+      } : undefined,
+      assignee: report.assignee ? {
+        name: report.assignee.full_name,
+        email: report.assignee.email,
+        role: report.assignee.role
+      } : undefined
+    };
+  }
+
+  /**
+   * coordinator: Get count of pending reports
+   * GET /coordinator/pending-count
+   */
+  async getPendingCount(req, res) {
+    try {
+      const coordinatorId = req.user.userId || req.user.id;
+
+      // Get coordinator's assigned blocks
+      const assignments = await prisma.coordinatorAssignment.findMany({
+        where: { coordinator_id: coordinatorId },
+        select: { block_id: true }
+      });
+
+      const assignedBlockIds = assignments.map(a => a.block_id).filter(Boolean);
+      const hasGeneralAssignment = assignments.some(a => a.block_id === null);
+
+      let where = { status: 'submitted' };
+      if (hasGeneralAssignment && assignedBlockIds.length > 0) {
+        where.OR = [{ block_id: { in: assignedBlockIds } }, { location_type: 'general' }];
+      } else if (hasGeneralAssignment) {
+        where.location_type = 'general';
+      } else if (assignedBlockIds.length > 0) {
+        where.block_id = { in: assignedBlockIds };
+      } else {
+        return res.status(200).json(successResponse('Pending count retrieved', { count: 0 }));
+      }
+
+      const count = await prisma.report.count({ where });
+      return res.status(200).json(successResponse('Pending count retrieved', { count }));
+    } catch (error) {
+      console.error('Error getting pending count:', error);
+      return res.status(500).json(errorResponse('Failed to retrieve pending count', 'SYSTEM_001'));
     }
   }
 

@@ -77,8 +77,8 @@ const MyReports = () => {
                 key={status}
                 onClick={() => handleFilterChange(status)}
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${(filters.status === status || (status === 'all' && !filters.status))
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'
                   }`}
               >
                 {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
@@ -117,7 +117,7 @@ const MyReports = () => {
                       </h3>
                     </div>
                     <p className="text-sm text-gray-500">
-                      {report.location.block_name || `Block ${report.location.block_id}`} • {report.location.room_number || report.location.description}
+                      {report.location?.block_name || (report.location?.block_id ? `Block ${report.location.block_id}` : 'General Location')} • {report.location?.room_number || report.location?.description || 'No location details'}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span className="text-[10px] font-mono text-gray-400 px-1.5 py-0.5 bg-gray-100 rounded">

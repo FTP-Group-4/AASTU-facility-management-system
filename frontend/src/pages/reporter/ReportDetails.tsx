@@ -24,6 +24,7 @@ import SLAIndicator from '../../components/common/UI/SLAIndicator';
 import { useReportStore } from '../../stores/reportStore';
 import { formatDate } from '../../lib/utils';
 import { cn } from '../../lib/utils';
+import { getMediaUrl } from '../../lib/urlUtils';
 
 const ReportDetails = () => {
   const { ticketId } = useParams<{ ticketId: string }>();
@@ -204,10 +205,10 @@ const ReportDetails = () => {
                 {currentReport.photos.map((photo, index) => (
                   <div key={photo.id} className="rounded-lg overflow-hidden border">
                     <img
-                      src={photo.url}
+                      src={getMediaUrl(photo.thumbnail_url || photo.url)}
                       alt={`Report photo ${index + 1}`}
                       className="w-full h-48 object-cover cursor-pointer hover:scale-105 transition-transform"
-                      onClick={() => window.open(photo.url, '_blank')}
+                      onClick={() => window.open(getMediaUrl(photo.url), '_blank')}
                     />
                   </div>
                 ))}
