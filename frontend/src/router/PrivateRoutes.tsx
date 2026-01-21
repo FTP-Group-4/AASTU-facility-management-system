@@ -19,7 +19,7 @@ const AssignedBlocks = lazy(() => import('../pages/coordinator/AssignedBlocks').
 const ReviewReport = lazy(() => import('../pages/coordinator/ReviewReport').then(module => ({ default: (module as any).default ?? (module as any).ReviewReport }) as { default: ComponentType<any> }));
 
 // Fixer
-const FixerDashboard = lazy(() => import('../pages/fixer/Dashboard').then(module => ({ default: (module as any).default ?? (module as any).Dashboard }) as { default: ComponentType<any> }));
+const FixerDashboard = lazy(() => import('../pages/fixer/Dashboard').then(module => ({ default: (module as any).default ?? (module as any).FixerDashboard }) as { default: ComponentType<any> }));
 const MyJobs = lazy(() => import('../pages/fixer/MyJobs').then(module => ({ default: (module as any).default ?? (module as any).MyJobs }) as { default: ComponentType<any> }));
 const JobDetails = lazy(() => import('../pages/fixer/JobDetails').then(module => ({ default: (module as any).default ?? (module as any).JobDetails }) as { default: ComponentType<any> }));
 

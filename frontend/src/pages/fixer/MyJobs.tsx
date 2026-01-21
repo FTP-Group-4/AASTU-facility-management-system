@@ -1,3 +1,4 @@
+/** Fixer MyJobs Page module */
 import { useState } from 'react';
 import { Search, List, Clock, CheckCircle, ChevronRight, Briefcase, MapPin, AlertCircle, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
