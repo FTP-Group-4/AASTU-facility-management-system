@@ -5,12 +5,12 @@ const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const scheduler = require('./utils/scheduler');
-const { 
-  sanitizeInput, 
-  preventParameterPollution, 
-  requestSizeLimit, 
-  securityHeaders, 
-  securityLogger 
+const {
+  sanitizeInput,
+  preventParameterPollution,
+  requestSizeLimit,
+  securityHeaders,
+  securityLogger
 } = require('./middleware/security');
 require('dotenv').config();
 
@@ -43,14 +43,15 @@ app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     const allowedOrigins = [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
       'http://localhost:3001',
+      'http://localhost:5173',
       'https://aastu-facilities.vercel.app' // Add production frontend URL
     ];
-    
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -242,7 +243,7 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  
+
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal server error',
@@ -259,7 +260,7 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`🚀 AASTU Facilities Management API running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`📖 API info: http://localhost:${PORT}/api`);
-    
+
     // Start background job scheduler
     scheduler.start();
   });

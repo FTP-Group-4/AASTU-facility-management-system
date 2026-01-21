@@ -113,12 +113,13 @@ export interface ReportsResponse {
   };
 }
 
+// CHANGE THIS: Make photos File[] instead of string[]
 export interface SubmitReportRequest {
   category: ReportCategory;
   location: Location;
   equipment_description: string;
   problem_description: string;
-  photos: string[]; // base64 encoded
+  photos: File[]; // CHANGED: Now File[] instead of string[]
 }
 
 export interface SubmitReportResponse {

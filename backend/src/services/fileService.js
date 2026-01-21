@@ -108,7 +108,7 @@ class FileService {
         originalName: originalName,
         mimetype: 'image/jpeg', // Always JPEG after processing
         size: stats.size,
-        url: `/uploads/${filename}`,
+        url: `/uploads/images/${filename}`,
         thumbnailUrl: `/uploads/thumbnails/thumb_${filename}`,
         createdAt: new Date()
       };

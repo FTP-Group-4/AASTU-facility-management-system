@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Calendar, 
-  Building, 
-  User, 
-  Clock, 
+import {
+  ArrowLeft,
+  Calendar,
+  Building,
+  User,
+  Clock,
   FileText,
   Image,
   MessageSquare,
   Star,
   Download,
   Share2,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import Button from '../../components/common/UI/Button';
 import Badge from '../../components/common/UI/Badge';
@@ -27,11 +28,12 @@ import { cn } from '../../lib/utils';
 const ReportDetails = () => {
   const { ticketId } = useParams<{ ticketId: string }>();
   const navigate = useNavigate();
-  const { currentReport, fetchReport, isLoading, error } = useReportStore();
-  
+  const { currentReport, fetchReport, submitRating, isLoading, error } = useReportStore();
+
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [showRatingForm, setShowRatingForm] = useState(false);
+  const [markStillBroken, setMarkStillBroken] = useState(false);
 
   useEffect(() => {
     if (ticketId) {
@@ -39,7 +41,24 @@ const ReportDetails = () => {
     }
   }, [ticketId]);
 
-  if (isLoading) {
+  const handleRatingSubmit = async () => {
+    if (!ticketId || rating === 0) return;
+
+    try {
+      await submitRating(ticketId, {
+        rating,
+        comment,
+        mark_still_broken: markStillBroken
+      });
+      setShowRatingForm(false);
+      // Refresh report data to show rating
+      await fetchReport(ticketId);
+    } catch (err) {
+      console.error('Failed to submit rating:', err);
+    }
+  };
+
+  if (isLoading && !currentReport) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -72,7 +91,7 @@ const ReportDetails = () => {
     );
   }
 
-  const canRate = currentReport.status === 'completed' && !currentReport.rating;
+  const canRate = (currentReport.status === 'completed' || currentReport.status === 'closed') && !currentReport.rating;
   const isOverdue = currentReport.sla && currentReport.sla.remaining_hours < 0;
 
   return (
@@ -98,7 +117,7 @@ const ReportDetails = () => {
             </code>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="gap-2">
             <Share2 className="w-4 h-4" />
@@ -117,18 +136,18 @@ const ReportDetails = () => {
           {/* Status Banner */}
           <div className={cn(
             'rounded-lg p-4 border',
-            isOverdue 
-              ? 'bg-danger-light border-danger/30'
+            isOverdue
+              ? 'bg-red-50 border-red-200'
               : 'bg-card border-border'
           )}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <StatusBadge status={currentReport.status} size="lg" />
-                <PriorityBadge priority={currentReport.priority} size="lg" />
+                <StatusBadge status={currentReport?.status || 'submitted'} size="lg" />
+                <PriorityBadge priority={currentReport?.priority || 'medium'} size="lg" />
               </div>
-              
-              {currentReport.sla && (
-                <SLAIndicator 
+
+              {currentReport?.sla && (
+                <SLAIndicator
                   deadline={new Date(currentReport.sla.deadline)}
                   currentTime={new Date()}
                   size="lg"
@@ -140,7 +159,7 @@ const ReportDetails = () => {
           {/* Problem Details */}
           <div className="bg-card border rounded-lg p-6">
             <h2 className="text-xl font-bold mb-4">Problem Details</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-medium mb-2 flex items-center gap-2">
@@ -148,12 +167,12 @@ const ReportDetails = () => {
                   Location
                 </h3>
                 <p className="text-muted-foreground">
-                  {currentReport.location.type === 'specific'
+                  {currentReport?.location?.type === 'specific'
                     ? `Block ${currentReport.location.block_id}${currentReport.location.room_number ? `, Room ${currentReport.location.room_number}` : ''}`
-                    : currentReport.location.description}
+                    : (currentReport?.location?.description || 'Location details not specified')}
                 </p>
               </div>
-              
+
               <div>
                 <h3 className="font-medium mb-2 flex items-center gap-2">
                   <FileText className="w-4 h-4" />
@@ -180,7 +199,7 @@ const ReportDetails = () => {
                 <Image className="w-5 h-5" />
                 Photos ({currentReport.photos.length})
               </h2>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {currentReport.photos.map((photo, index) => (
                   <div key={photo.id} className="rounded-lg overflow-hidden border">
@@ -199,9 +218,9 @@ const ReportDetails = () => {
           {/* Workflow Timeline */}
           <div className="bg-card border rounded-lg p-6">
             <h2 className="text-xl font-bold mb-4">Progress Timeline</h2>
-            
+
             <div className="space-y-4">
-              {currentReport.workflow.map((step, index) => (
+              {currentReport.workflow && currentReport.workflow.map((step, index) => (
                 <div key={index} className="flex gap-4">
                   <div className="flex flex-col items-center">
                     <div className={cn(
@@ -212,7 +231,7 @@ const ReportDetails = () => {
                       <div className="w-0.5 h-full bg-border mt-1" />
                     )}
                   </div>
-                  
+
                   <div className="flex-1 pb-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium">{step.action}</h4>
@@ -246,10 +265,10 @@ const ReportDetails = () => {
                 <Star className="w-5 h-5" />
                 Rate This Service
               </h2>
-              
+
               {!showRatingForm ? (
                 <div className="text-center py-8">
-                  <p className="mb-4">How would you rate the maintenance service?</p>
+                  <p className="mb-4 text-gray-600">How would you rate the maintenance service?</p>
                   <Button onClick={() => setShowRatingForm(true)}>
                     Rate Now
                   </Button>
@@ -268,27 +287,44 @@ const ReportDetails = () => {
                       </button>
                     ))}
                   </div>
-                  
-                  {rating <= 3 && (
+
+                  {rating > 0 && (
                     <div>
                       <label className="block text-sm font-medium mb-2">
-                        Please provide feedback (required for low ratings)
+                        Additional Feedback {rating <= 3 && '(Required)'}
                       </label>
                       <textarea
                         value={comment}
                         onChange={(e) => setComment(e.target.value)}
                         placeholder="What could have been better?"
-                        className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                         required={rating <= 3}
                       />
                     </div>
                   )}
-                  
-                  <div className="flex gap-3">
+
+                  <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="still_broken"
+                      checked={markStillBroken}
+                      onChange={(e) => setMarkStillBroken(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <label htmlFor="still_broken" className="text-sm font-medium text-gray-700">
+                      Issue is still broken (Reopen ticket)
+                    </label>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
                     <Button variant="outline" onClick={() => setShowRatingForm(false)}>
                       Cancel
                     </Button>
-                    <Button disabled={rating <= 3 && !comment.trim()}>
+                    <Button
+                      disabled={isLoading || rating === 0 || (rating <= 3 && !comment.trim())}
+                      onClick={handleRatingSubmit}
+                    >
+                      {isLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                       Submit Rating
                     </Button>
                   </div>
@@ -303,19 +339,19 @@ const ReportDetails = () => {
           {/* Report Info Card */}
           <div className="bg-card border rounded-lg p-6">
             <h3 className="font-bold mb-4">Report Information</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground">Submitted By</p>
-                <p className="font-medium flex items-center gap-2">
+                <div className="font-medium flex items-center gap-2">
                   <User className="w-4 h-4" />
-                  {currentReport.submitted_by.name}
-                </p>
+                  {currentReport?.submitted_by?.name || 'Unknown Reporter'}
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  {currentReport.submitted_by.department}
+                  {currentReport?.submitted_by?.department || 'Department not specified'}
                 </p>
               </div>
-              
+
               <div>
                 <p className="text-sm text-muted-foreground">Submission Date</p>
                 <p className="font-medium flex items-center gap-2">
@@ -323,30 +359,35 @@ const ReportDetails = () => {
                   {formatDate(currentReport.submitted_at, 'long')}
                 </p>
               </div>
-              
+
               <div>
                 <p className="text-sm text-muted-foreground">Category</p>
                 <Badge variant="outline" className="capitalize">
                   {currentReport.category}
                 </Badge>
               </div>
-              
+
               {currentReport.rating && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Your Rating</p>
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground mb-2">Your Rating</p>
                   <div className="flex items-center gap-1">
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={i}
                         className={cn(
                           'w-4 h-4',
-                          i < currentReport.rating! 
-                            ? 'text-warning fill-warning' 
-                            : 'text-muted-foreground'
+                          i < currentReport.rating!
+                            ? 'text-yellow-400 fill-yellow-400'
+                            : 'text-gray-300'
                         )}
                       />
                     ))}
                   </div>
+                  {currentReport.feedback && (
+                    <p className="text-xs text-muted-foreground mt-2 italic">
+                      "{currentReport.feedback}"
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -355,17 +396,17 @@ const ReportDetails = () => {
           {/* Actions Card */}
           <div className="bg-card border rounded-lg p-6">
             <h3 className="font-bold mb-4">Actions</h3>
-            
+
             <div className="space-y-3">
-              {currentReport.status === 'submitted' && (
+              {(currentReport.status === 'submitted' || currentReport.status === 'in_progress') && (
                 <Button variant="outline" className="w-full justify-start gap-2">
                   <MessageSquare className="w-4 h-4" />
                   Contact Coordinator
                 </Button>
               )}
-              
-              {currentReport.status === 'completed' && !currentReport.rating && (
-                <Button 
+
+              {canRate && (
+                <Button
                   onClick={() => setShowRatingForm(true)}
                   className="w-full justify-start gap-2"
                 >
@@ -373,12 +414,12 @@ const ReportDetails = () => {
                   Rate Service
                 </Button>
               )}
-              
+
               <Button variant="outline" className="w-full justify-start gap-2">
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
-              
+
               <Button variant="outline" className="w-full justify-start gap-2">
                 <FileText className="w-4 h-4" />
                 View Certificate

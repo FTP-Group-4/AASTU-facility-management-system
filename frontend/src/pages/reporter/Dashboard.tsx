@@ -1,47 +1,104 @@
 import { useNavigate } from 'react-router-dom';
 import { Plus, List, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
-// import { reportApi } from '../../api/reports/reportApi'; // Mocking for now to avoid dependency errors if api not fully set
+import { reportApi } from '../../api/reports/reportApi';
+import type { ReportSummary, ReportsResponse } from '../../types/report';
 
 const ReporterDashboard = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    // Mock data matching API structure
     const [stats, setStats] = useState({
-        total: 12,
-        pending: 2,
-        in_progress: 3,
-        completed: 7,
+        total: 0,
+        pending: 0,
+        in_progress: 0,
+        completed: 0,
     });
 
-    const [recentReports, setRecentReports] = useState([
-        {
-            id: "AASTU-FIX-20240320-0045",
-            summary: "Projector won't turn on",
-            location: "Block 57 - Room 201",
-            status: "in_progress",
-            date: "2024-03-20"
-        },
-        {
-            id: "AASTU-FIX-20240318-0022",
-            summary: "Broken chair in lab",
-            location: "Block 12 - Lab 3",
-            status: "completed",
-            date: "2024-03-18"
-        }
-    ]);
+    const [recentReports, setRecentReports] = useState<ReportSummary[]>([]);
+
+    const calculateStats = (reports: ReportSummary[]) => {
+        return {
+            total: reports.length,
+            pending: reports.filter(r => 
+                r.status === 'submitted' || 
+                r.status === 'pending_approval'
+            ).length,
+            in_progress: reports.filter(r => 
+                r.status === 'approved' || 
+                r.status === 'assigned' || 
+                r.status === 'in_progress'
+            ).length,
+            completed: reports.filter(r => 
+                r.status === 'completed' || 
+                r.status === 'closed'
+            ).length,
+        };
+    };
 
     useEffect(() => {
-        // Simulate API call
-        setTimeout(() => setLoading(false), 500);
+        const fetchDashboardData = async () => {
+            try {
+                setLoading(true);
+                
+                // Try to get reports with limit
+                const response = await reportApi.getMyReports({ limit: 5 });
+                
+                console.log('Dashboard API Response:', response);
+                
+                // Handle different response structures
+                let reports: ReportSummary[] = [];
+                
+                if (response && Array.isArray(response.reports)) {
+                    // Structure: { reports: [], summary: {} }
+                    reports = response.reports;
+                } else if (response && Array.isArray(response)) {
+                    // Structure: [] (just array of reports)
+                    reports = response;
+                } else if (response && typeof response === 'object' && response.summary) {
+                    // Structure: { data: { reports: [], summary: {} } }
+                    reports = response.reports || [];
+                }
+                
+                console.log('Parsed reports:', reports);
+                
+                // Calculate stats from reports
+                const calculatedStats = calculateStats(reports);
+                setStats(calculatedStats);
+                setRecentReports(reports);
+                setError(null);
+                
+            } catch (err: any) {
+                console.error('Failed to fetch dashboard data:', err);
+                setError('Failed to load dashboard data. Please try again later.');
+                
+                // Set empty state
+                setStats({
+                    total: 0,
+                    pending: 0,
+                    in_progress: 0,
+                    completed: 0,
+                });
+                setRecentReports([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDashboardData();
     }, []);
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'completed': return 'text-green-600 bg-green-50 border-green-200';
-            case 'in_progress': return 'text-blue-600 bg-blue-50 border-blue-200';
+            case 'completed':
+            case 'closed': return 'text-green-600 bg-green-50 border-green-200';
+            case 'in_progress':
+            case 'assigned': return 'text-blue-600 bg-blue-50 border-blue-200';
+            case 'submitted':
             case 'pending_approval': return 'text-orange-600 bg-orange-50 border-orange-200';
+            case 'rejected': return 'text-red-600 bg-red-50 border-red-200';
+            case 'reopened': return 'text-purple-600 bg-purple-50 border-purple-200';
             default: return 'text-gray-600 bg-gray-50 border-gray-200';
         }
     };
@@ -71,6 +128,12 @@ const ReporterDashboard = () => {
                     </button>
                 </div>
             </div>
+
+            {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl relative" role="alert">
+                    <span className="block sm:inline">{error}</span>
+                </div>
+            )}
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -112,28 +175,55 @@ const ReporterDashboard = () => {
                 </div>
 
                 {loading ? (
-                    <div className="p-8 text-center text-gray-400">Loading activity...</div>
+                    <div className="p-8 text-center text-gray-400">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-2"></div>
+                        Loading activity...
+                    </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
-                        {recentReports.map(report => (
-                            <div key={report.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between group">
-                                <div className="flex items-start space-x-3">
-                                    <div className={`p-2 rounded-lg mt-1 ${getStatusColor(report.status)}`}>
-                                        {report.status === 'completed' ? <CheckCircle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                        {recentReports.length > 0 ? (
+                            recentReports.map(report => (
+                                <div
+                                    key={report.ticket_id}
+                                    onClick={() => navigate(`/reporter/reports/${report.ticket_id}`)}
+                                    className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between group cursor-pointer"
+                                >
+                                    <div className="flex items-start space-x-3">
+                                        <div className={`p-2 rounded-lg mt-1 ${getStatusColor(report.status)}`}>
+                                            {report.status === 'completed' || report.status === 'closed' ? <CheckCircle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-semibold text-gray-800 text-sm group-hover:text-indigo-600 transition-colors">
+                                                {report.problem_summary || 'No description'}
+                                            </h4>
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                {report.location?.block_name || 
+                                                 (report.location?.block_id ? `Block ${report.location.block_id}` : 'No location')} - 
+                                                {report.location?.room_number || report.location?.description || 'No room'} • {report.ticket_id}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h4 className="font-semibold text-gray-800 text-sm group-hover:text-indigo-600 transition-colors">{report.summary}</h4>
-                                        <p className="text-xs text-gray-500 mt-0.5">{report.location} • {report.id}</p>
+                                    <div className="text-right">
+                                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${getStatusColor(report.status)}`}>
+                                            {report.status ? report.status.replace('_', ' ') : 'unknown'}
+                                        </span>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            {report.submitted_at ? new Date(report.submitted_at).toLocaleDateString() : 'No date'}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${getStatusColor(report.status)}`}>
-                                        {report.status.replace('_', ' ')}
-                                    </span>
-                                    <p className="text-xs text-gray-400 mt-1">{report.date}</p>
-                                </div>
+                            ))
+                        ) : (
+                            <div className="p-8 text-center text-gray-500">
+                                <p>You haven't submitted any reports yet.</p>
+                                <button
+                                    onClick={() => navigate('/reporter/new-report')}
+                                    className="text-indigo-600 font-medium hover:underline mt-2"
+                                >
+                                    Submit your first report
+                                </button>
                             </div>
-                        ))}
+                        )}
                     </div>
                 )}
             </div>

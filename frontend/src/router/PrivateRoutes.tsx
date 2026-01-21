@@ -11,6 +11,7 @@ import Layout from '../components/common/Layout/Layout';
 const Dashboard = lazy(() => import('../pages/reporter/Dashboard').then(module => ({ default: (module as any).default ?? (module as any).Dashboard }) as { default: ComponentType<any> }));
 const NewReport = lazy(() => import('../pages/reporter/NewReport').then(module => ({ default: (module as any).default ?? (module as any).NewReport }) as { default: ComponentType<any> }));
 const MyReports = lazy(() => import('../pages/reporter/MyReports').then(module => ({ default: (module as any).default ?? (module as any).MyReports }) as { default: ComponentType<any> }));
+const ReportDetails = lazy(() => import('../pages/reporter/ReportDetails').then(module => ({ default: (module as any).default ?? (module as any).ReportDetails }) as { default: ComponentType<any> }));
 
 // Coordinator
 const CoordinatorDashboard = lazy(() => import('../pages/coordinator/Dashboard').then(module => ({ default: (module as any).default ?? (module as any).Dashboard }) as { default: ComponentType<any> }));
@@ -49,6 +50,7 @@ const PrivateRoutes = () => {
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="new-report" element={<NewReport />} />
                 <Route path="reports" element={<MyReports />} />
+                <Route path="reports/:ticketId" element={<ReportDetails />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="" element={<Navigate to="dashboard" replace />} />
               </Routes>
