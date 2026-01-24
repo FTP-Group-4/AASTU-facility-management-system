@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 
 const blockController = require('../controllers/blockController');
-const analyticsController = require('../controllers/analyticsController');
 const userController = require('../controllers/userController');
 const adminController = require('../controllers/adminController');
 const { authenticate, authorize } = require('../middleware/auth');
@@ -107,16 +106,6 @@ router.delete('/blocks/:id/coordinators/:coordinatorId',
   blockController.removeCoordinatorAssignment
 );
 
-/**
- * @route GET /admin/assignments
- * @desc Get coordinator assignment matrix
- * @access Private (Admin only)
- */
-router.get('/assignments',
-  authenticate,
-  authorize('admin'),
-  blockController.getCoordinatorAssignments
-);
 
 // Admin user management routes
 
@@ -129,7 +118,7 @@ router.post('/users',
   authenticate,
   authorize('admin'),
   validate(authSchemas.createUser),
-  userController.createUser
+  adminController.createUser // Changed from userController to adminController
 );
 
 /**
@@ -142,7 +131,7 @@ router.put('/users/:id',
   authorize('admin'),
   validate(paramSchemas.userId, 'params'),
   validate(userSchemas.updateUser),
-  userController.updateUser
+  adminController.updateUser // Changed from userController to adminController
 );
 
 /**
@@ -154,7 +143,7 @@ router.get('/users',
   authenticate,
   authorize('admin'),
   validate(userSchemas.getUsersQuery, 'query'),
-  userController.getAllUsers
+  adminController.getAllUsers // Changed from userController to adminController
 );
 
 /**
@@ -166,7 +155,19 @@ router.get('/users/:id',
   authenticate,
   authorize('admin'),
   validate(paramSchemas.userId, 'params'),
-  userController.getUserById
+  adminController.getUserById // Changed from userController to adminController
+);
+
+/**
+ * @route DELETE /admin/users/:id
+ * @desc Delete user
+ * @access Private (Admin only)
+ */
+router.delete('/users/:id',
+  authenticate,
+  authorize('admin'),
+  validate(paramSchemas.userId, 'params'),
+  adminController.deleteUser
 );
 
 // Admin system configuration routes
@@ -227,7 +228,18 @@ router.get('/system/health',
 router.get('/dashboard',
   authenticate,
   authorize('admin'),
-  analyticsController.getAdminDashboard
+  adminController.getDashboard
+);
+
+/**
+ * @route GET /admin/assignments
+ * @desc Get coordinator assignment matrix
+ * @access Private (Admin only)
+ */
+router.get('/assignments',
+  authenticate,
+  authorize('admin'),
+  adminController.getAssignments
 );
 
 /**
@@ -239,7 +251,24 @@ router.post('/reports/generate',
   authenticate,
   authorize('admin'),
   validate(analyticsSchemas.generateReportBody),
-  analyticsController.generateReport
+  adminController.generateReport
+);
+
+/**
+ * @route GET /admin/reports/generate
+ * @desc Handle GET requests gracefully (405 Method Not Allowed)
+ * @access Private (Admin only)
+ */
+router.get('/reports/generate',
+  authenticate,
+  authorize('admin'),
+  (req, res) => {
+    res.status(405).json({
+      success: false,
+      message: 'Method Not Allowed. Please use POST to generate reports.',
+      error_code: 'METHOD_NOT_ALLOWED'
+    });
+  }
 );
 
 module.exports = router;

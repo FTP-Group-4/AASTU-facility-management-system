@@ -1,22 +1,63 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Activity, AlertTriangle, Heart, Clock, CheckCircle2, Building, Shield } from 'lucide-react';
+import { Users, Activity, AlertTriangle, Heart, Building } from 'lucide-react';
+import { adminService } from '../../services/adminService';
+import type { DashboardData } from '../../types/admin'; // Fixed import
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [data, setData] = useState<DashboardData | null>(null);
 
-    // Mock data
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                setLoading(true);
+                const dashboardData = await adminService.getDashboard();
+                setData(dashboardData);
+                setError(null);
+            } catch (err) {
+                console.error('Failed to fetch dashboard data:', err);
+                setError('Failed to load system dashboard. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="bg-red-50 p-4 rounded-lg text-red-800 text-center">
+                <AlertTriangle className="mx-auto h-8 w-8 mb-2 text-red-600" />
+                <p>{error}</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 rounded text-sm font-semibold transition-colors"
+                >
+                    Retry
+                </button>
+            </div>
+        );
+    }
+
+    const { system_health, reports_summary, sla_compliance, alerts } = data!;
+
     const stats = [
-        { label: 'System Health', value: '98%', icon: Heart, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-        { label: 'Active Reports', value: '24', icon: Activity, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { label: 'Urgent Issues', value: '3', icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
-        { label: 'Total Users', value: '1,248', icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    ];
-
-    const activities = [
-        { id: 1, type: 'assignment', text: 'Coordinator assigned to Block 57', time: '12 mins ago', icon: Shield, color: 'text-blue-500' },
-        { id: 2, type: 'status', text: 'SLA policy updated for Electrical', time: '1 hour ago', icon: Clock, color: 'text-amber-500' },
-        { id: 3, type: 'user', text: 'New Fixer account created: chala_m', time: '4 hours ago', icon: Users, color: 'text-indigo-500' },
-        { id: 4, type: 'system', text: 'Scheduled backup completed', time: '1 day ago', icon: CheckCircle2, color: 'text-emerald-500' },
+        { label: 'System Health', value: system_health.uptime ? 'Healthy' : 'Degraded', icon: Heart, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        { label: 'Active Reports', value: reports_summary.reports_today.toString(), icon: Activity, color: 'text-blue-600', bg: 'bg-blue-50' },
+        { label: 'SLA Violations', value: alerts.filter(a => a.type === 'sla_violation').length.toString(), icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
+        { label: 'Total Users', value: system_health.active_users.toString(), icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
     ];
 
     return (
@@ -63,27 +104,50 @@ const AdminDashboard = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Recent Activity */}
+                {/* SLA Compliance */}
                 <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm">
                     <div className="p-6 border-b border-gray-100">
-                        <h2 className="text-lg font-bold text-gray-800">System Activity Log</h2>
+                        <h2 className="text-lg font-bold text-gray-800">SLA Compliance & Alerts</h2>
                     </div>
                     <div className="p-6 space-y-6">
-                        {activities.map((act) => (
-                            <div key={act.id} className="flex items-center gap-4">
-                                <div className={`p-2.5 rounded-lg bg-gray-50 ${act.color}`}>
-                                    <act.icon className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-gray-800">{act.text}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">{act.time}</p>
-                                </div>
-                                <button className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Details</button>
+                        {alerts.length === 0 ? (
+                            <div className="text-center text-gray-500 py-8">
+                                <Activity className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                                <p>No active alerts. System is running smoothly.</p>
                             </div>
-                        ))}
-                    </div>
-                    <div className="p-4 border-t border-gray-100 text-center">
-                        <button className="text-sm font-semibold text-gray-500 hover:text-indigo-600">View Full Operational History</button>
+                        ) : (
+                            alerts.map((alert, idx) => (
+                                <div key={idx} className="flex items-center gap-4 p-3 rounded-lg bg-red-50 border border-red-100">
+                                    <div className="p-2 rounded-full bg-red-100 text-red-600">
+                                        <AlertTriangle className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-semibold text-gray-800">{alert.type.replace('_', ' ').toUpperCase()}</p>
+                                        <p className="text-xs text-red-600 mt-0.5">{alert.message}</p>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+
+                        <div className="mt-6">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Compliance Rates</h3>
+                            <div className="space-y-3">
+                                {Object.entries(sla_compliance).map(([level, rate]) => (
+                                    <div key={level}>
+                                        <div className="flex justify-between text-sm mb-1">
+                                            <span className="capitalize">{level} Priority</span>
+                                            <span className="font-semibold">{rate}%</span>
+                                        </div>
+                                        <div className="w-full bg-gray-100 rounded-full h-2">
+                                            <div
+                                                className={`h-2 rounded-full ${rate > 90 ? 'bg-green-500' : rate > 75 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                                style={{ width: `${rate}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -95,17 +159,19 @@ const AdminDashboard = () => {
                         </h2>
                         <div className="space-y-4">
                             <div className="bg-white/10 p-4 rounded-xl border border-white/10">
-                                <span className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Avg Resolution Time</span>
-                                <span className="text-2xl font-bold">4.2 Hours</span>
+                                <span className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Avg Resolution Rating</span>
+                                <span className="text-2xl font-bold">{reports_summary.avg_rating} / 5.0</span>
                             </div>
                             <div className="bg-white/10 p-4 rounded-xl border border-white/10">
-                                <span className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Total Issues Resolved</span>
-                                <span className="text-2xl font-bold">1,248</span>
+                                <span className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Completion Rate</span>
+                                <span className="text-2xl font-bold">{reports_summary.completion_rate}%</span>
+                            </div>
+                            <div className="bg-white/10 p-4 rounded-xl border border-white/10">
+                                <span className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">System Uptime</span>
+                                <span className="text-2xl font-bold">{system_health.uptime}</span>
                             </div>
                         </div>
-                        <button className="w-full mt-6 py-3 bg-white text-indigo-700 font-bold rounded-lg hover:bg-gray-50 transition-colors text-sm shadow-md">
-                            Generate Q1 Report
-                        </button>
+
                     </div>
                     <Activity className="absolute -bottom-10 -right-10 w-48 h-48 opacity-10 rotate-12" />
                 </div>

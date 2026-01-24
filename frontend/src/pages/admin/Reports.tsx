@@ -1,14 +1,48 @@
 import { useState } from 'react';
-import { Search, Filter, MoreVertical, Clock, MapPin, AlertCircle, CheckCircle, FileText, ChevronRight } from 'lucide-react';
+import { Search, Filter, AlertCircle, MapPin, FileText, ChevronRight, X, Download, Loader2, ArrowRight } from 'lucide-react';
+import { adminService } from '../../services/adminService';
 
 const AdminReports = () => {
-    // Mock data
+    // Mock data for display, in a real app this would also be fetched
     const [reports] = useState([
         { id: 'T-882', summary: 'Main Server Room AC Fault', location: 'Block 01, Room 004', status: 'in_progress', priority: 'Emergency', date: '30 mins ago' },
         { id: 'T-771', summary: 'Lecture Hall 2 Projector Power', location: 'Block 57, Hall 2', status: 'pending_approval', priority: 'High', date: '2 hours ago' },
         { id: 'T-654', summary: 'Sink Leakage - Faculty Lounge', location: 'Block 12, Floor 2', status: 'completed', priority: 'Medium', date: 'Yesterday' },
         { id: 'T-543', summary: 'Broken Window - Dorm 4', location: 'Block 40, Room 112', status: 'rejected', priority: 'Low', date: '2 days ago' },
     ]);
+
+    // Generate Report State
+    const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [reportConfig, setReportConfig] = useState({
+        report_type: 'performance',
+        format: 'pdf',
+        date_range: 'last_30_days' // simplified data range
+    });
+    const [generationSuccess, setGenerationSuccess] = useState<string | null>(null);
+
+    const handleGenerateReport = async () => {
+        try {
+            setIsGenerating(true);
+            setGenerationSuccess(null);
+
+            // Call actual endpoint
+            const response: any = await adminService.generateReport(reportConfig);
+
+            // Simulate processing formatting
+            setGenerationSuccess(response.message || 'Report generated successfully! Check your email.');
+
+            // Auto close after 2 sec or let user close
+            setTimeout(() => {
+                // setIsGenerateModalOpen(false); // Optional: keep open to show success
+            }, 2000);
+        } catch (error) {
+            console.error('Report generation failed:', error);
+            alert('Failed to generate report. Please try again.');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     const getStatusStyles = (status: string) => {
         switch (status) {
@@ -37,8 +71,14 @@ const AdminReports = () => {
                     <p className="text-sm text-gray-500">Global registry of all maintenance requests, incidents, and archival data.</p>
                 </div>
                 <div className="flex gap-2">
+                    <button
+                        onClick={() => setIsGenerateModalOpen(true)}
+                        className="px-4 py-2 bg-indigo-600 border border-transparent rounded-lg text-sm font-bold text-white hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-sm"
+                    >
+                        Generate New Report <FileText className="w-4 h-4" />
+                    </button>
                     <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2">
-                        Download Export <FileText className="w-4 h-4" />
+                        Export List <Download className="w-4 h-4" />
                     </button>
                 </div>
             </div>
@@ -108,6 +148,129 @@ const AdminReports = () => {
                     </table>
                 </div>
             </div>
+
+            {/* Generate Report Modal */}
+            {isGenerateModalOpen && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900">Generate System Report</h2>
+                                <p className="text-sm text-gray-500">Select parameters for your exported data.</p>
+                            </div>
+                            <button
+                                onClick={() => setIsGenerateModalOpen(false)}
+                                className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            {generationSuccess ? (
+                                <div className="bg-green-50 border border-green-100 rounded-xl p-6 text-center">
+                                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <FileText className="w-6 h-6 text-green-600" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-green-800 mb-1">Report Generated!</h3>
+                                    <p className="text-green-700 text-sm">{generationSuccess}</p>
+                                    <button
+                                        onClick={() => { setIsGenerateModalOpen(false); setGenerationSuccess(null); }}
+                                        className="mt-4 px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-2">Report Type</label>
+                                            <select
+                                                value={reportConfig.report_type}
+                                                onChange={(e) => setReportConfig({ ...reportConfig, report_type: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                                            >
+                                                <option value="performance">Performance Analysis</option>
+                                                <option value="maintenance">Maintenance Logs</option>
+                                                <option value="financial">Financial Overview</option>
+                                                <option value="inventory">Inventory Status</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-2">Format</label>
+                                            <select
+                                                value={reportConfig.format}
+                                                onChange={(e) => setReportConfig({ ...reportConfig, format: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                                            >
+                                                <option value="pdf">PDF Document</option>
+                                                <option value="excel">Excel Spreadsheet</option>
+                                                <option value="csv">CSV Raw Data</option>
+                                                <option value="json">JSON API Response</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Data Period</label>
+                                        <select
+                                            value={reportConfig.date_range}
+                                            onChange={(e) => setReportConfig({ ...reportConfig, date_range: e.target.value })}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                                        >
+                                            <option value="today">Today so far</option>
+                                            <option value="last_7_days">Last 7 Days</option>
+                                            <option value="last_30_days">Last 30 Days</option>
+                                            <option value="this_quarter">Current Quarter</option>
+                                            <option value="all_time">All Time History</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex gap-3 items-start">
+                                        <AlertCircle className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <h4 className="text-sm font-bold text-indigo-900">Pro Tip</h4>
+                                            <p className="text-xs text-indigo-700 leading-relaxed mt-1">
+                                                Large date ranges may take longer to process. You will be notified via email when complex reports are ready for download.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {!generationSuccess && (
+                            <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                                <button
+                                    onClick={() => setIsGenerateModalOpen(false)}
+                                    className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-100 transition-all text-sm"
+                                    disabled={isGenerating}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleGenerateReport}
+                                    className="px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-all text-sm flex items-center gap-2 shadow-lg shadow-indigo-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    disabled={isGenerating}
+                                >
+                                    {isGenerating ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Generate Report
+                                            <ArrowRight className="w-4 h-4" />
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
