@@ -64,7 +64,7 @@ const Settings = () => {
                         </div>
                     </div>
                 </div>
-
+{/* 
                 <div className="space-y-6">
                     <div className="bg-indigo-900 rounded-xl p-6 text-white shadow-lg overflow-hidden relative">
                         <div className="relative z-10">
@@ -93,7 +93,7 @@ const Settings = () => {
                     <button className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 active:scale-95">
                         <Save className="w-5 h-5" /> Save Configuration
                     </button>
-                </div>
+                </div> */}
             </div>
         </div>
     );

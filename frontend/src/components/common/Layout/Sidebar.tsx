@@ -7,7 +7,8 @@ import {
     Building2,
     Users,
     Settings,
-    Briefcase
+    Briefcase,
+    Clock
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 
@@ -35,12 +36,14 @@ const Sidebar = () => {
                     { to: '/fixer/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
                     { to: '/fixer/queue', icon: List, label: 'Job Queue' },
                     { to: '/fixer/jobs', icon: Briefcase, label: 'My Jobs' },
+                    { to: '/fixer/history', icon: Clock, label: 'Job History' }, // Added Job History link
                 ];
             case 'admin':
                 return [
                     { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
                     { to: '/admin/users', icon: Users, label: 'Users' },
                     { to: '/admin/blocks', icon: Building2, label: 'Blocks' },
+                    { to: '/admin/reports', icon: List, label: 'Reports' },
                     { to: '/admin/assignments', icon: CheckSquare, label: 'Assignments' },
                     { to: '/admin/config', icon: Settings, label: 'System Config' },
                 ];

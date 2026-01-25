@@ -146,15 +146,15 @@ class ReportService {
       if (!blockId) {
         throw new Error('Block ID is required for specific locations');
       }
-      
+
       // Validate block exists and is within range 1-100
       const block = await prisma.block.findFirst({
-        where: { 
+        where: {
           block_number: blockId,
           block_number: { gte: 1, lte: 100 }
         }
       });
-      
+
       if (!block) {
         throw new Error('Invalid block number. Block must be between 1 and 100');
       }
@@ -170,11 +170,11 @@ class ReportService {
       if (!locationDescription) {
         throw new Error('Location description is required for general locations');
       }
-      
+
       if (locationDescription.length < 5) {
         throw new Error('Location description must be at least 5 characters long');
       }
-      
+
       if (locationDescription.length > 200) {
         throw new Error('Location description must not exceed 200 characters');
       }
@@ -318,7 +318,7 @@ class ReportService {
    */
   async getReports(filters = {}, userId, userRole) {
     try {
-      const {
+      let {
         status,
         category,
         priority,
@@ -328,13 +328,18 @@ class ReportService {
         page = 1,
         limit = 20,
         sort_by = 'created_at',
-        sort_order = 'desc'
+        sort_order = 'desc',
+        search
       } = filters;
+
+      // Ensure page and limit are integers
+      page = parseInt(page, 10) || 1;
+      limit = parseInt(limit, 10) || 20;
 
       // Build where condition based on user role
       let whereCondition = {};
 
-      // Role-based access control
+      // Role-based access control (RBAC)
       if (userRole === 'reporter') {
         whereCondition.submitted_by = userId;
       } else if (userRole === 'coordinator') {
@@ -342,7 +347,7 @@ class ReportService {
         const assignments = await prisma.coordinatorAssignment.findMany({
           where: { coordinator_id: userId }
         });
-        
+
         const assignedBlockIds = assignments
           .map(a => a.block_id)
           .filter(Boolean);
@@ -367,7 +372,7 @@ class ReportService {
           {
             OR: [
               { assigned_to: userId },
-              { 
+              {
                 status: { in: ['approved'] },
                 assigned_to: null
               }
@@ -384,6 +389,18 @@ class ReportService {
       if (block_id) whereCondition.block_id = block_id;
       if (submitted_by) whereCondition.submitted_by = submitted_by;
       if (assigned_to) whereCondition.assigned_to = assigned_to;
+
+      // Apply search if provided
+      if (search && search.trim() !== '') {
+        const searchLower = search.trim();
+        whereCondition.OR = [
+          ...(whereCondition.OR || []),
+          { ticket_id: { contains: searchLower, mode: 'insensitive' } },
+          { equipment_description: { contains: searchLower, mode: 'insensitive' } },
+          { problem_description: { contains: searchLower, mode: 'insensitive' } },
+          { location_description: { contains: searchLower, mode: 'insensitive' } }
+        ];
+      }
 
       // Get reports with pagination
       const [reports, total] = await Promise.all([
@@ -522,7 +539,7 @@ class ReportService {
       let duplicateResult = null;
       if (!ignoreDuplicates) {
         duplicateResult = await this.checkForDuplicates(reportData);
-        
+
         // If high-confidence duplicates found, return warning without creating report
         if (duplicateResult.has_duplicates && !ignoreDuplicates) {
           return {
@@ -562,7 +579,7 @@ class ReportService {
     try {
       const recordPromises = duplicates
         .filter(duplicate => duplicate.similarity_score >= 0.7) // Only record high-confidence duplicates
-        .map(duplicate => 
+        .map(duplicate =>
           duplicateDetectionService.recordDuplicate(
             duplicate.report_id,
             newReportId,
@@ -600,7 +617,7 @@ class ReportService {
   async associatePhotos(reportId, photoData) {
     try {
       const photos = await Promise.all(
-        photoData.map(photo => 
+        photoData.map(photo =>
           prisma.reportPhoto.create({
             data: {
               report_id: reportId,

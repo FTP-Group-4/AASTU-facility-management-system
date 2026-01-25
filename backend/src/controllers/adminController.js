@@ -69,29 +69,89 @@ class AdminController {
         console.error('Error Aggregating Rating:', err.message);
       }
 
-      // Get SLA violations (reports past deadline)
-      const now = new Date();
-      // Simple SLA check: emergency reports older than 24h
-      // In a real system, this would be more complex
-      const slaViolations = await safeCount(prisma.report, {
+      // Calculate real SLA compliance per priority
+      const slaHours = { 'emergency': 2, 'high': 24, 'medium': 72, 'low': 168 };
+
+      const sla_compliance = {
+        emergency: 100,
+        high: 100,
+        medium: 100,
+        low: 100
+      };
+
+      // Get all completed reports to calculate compliance
+      const completedDetailList = await prisma.report.findMany({
         where: {
-          status: { in: ['submitted', 'under_review', 'approved', 'assigned', 'in_progress'] },
-          created_at: {
-            lt: new Date(now.getTime() - 24 * 60 * 60 * 1000)
-          },
-          priority: 'emergency'
+          status: { in: ['completed', 'closed'] },
+          priority: { in: ['emergency', 'high', 'medium', 'low'] }
+        },
+        select: {
+          priority: true,
+          created_at: true,
+          updated_at: true
         }
       });
 
-      // Build alerts
+      // Group and calculate
+      const priorityStats = {
+        emergency: { total: 0, onTime: 0 },
+        high: { total: 0, onTime: 0 },
+        medium: { total: 0, onTime: 0 },
+        low: { total: 0, onTime: 0 }
+      };
+
+      completedDetailList.forEach(report => {
+        if (!report.priority) return;
+        const p = report.priority.toLowerCase();
+        if (priorityStats[p]) {
+          priorityStats[p].total++;
+          const durationHrs = (new Date(report.updated_at).getTime() - new Date(report.created_at).getTime()) / (1000 * 60 * 60);
+          if (durationHrs <= slaHours[p]) {
+            priorityStats[p].onTime++;
+          }
+        }
+      });
+
+      // Update compliance object
+      Object.keys(priorityStats).forEach(p => {
+        if (priorityStats[p].total > 0) {
+          sla_compliance[p] = parseFloat(((priorityStats[p].onTime / priorityStats[p].total) * 100).toFixed(1));
+        }
+      });
+
+      // Get SLA violations (open reports past their priority deadline)
+      const now = new Date();
+      const openReports = await prisma.report.findMany({
+        where: {
+          status: { in: ['submitted', 'under_review', 'approved', 'assigned', 'in_progress'] },
+          priority: { not: null }
+        },
+        select: {
+          id: true,
+          ticket_id: true,
+          priority: true,
+          created_at: true,
+          equipment_description: true
+        }
+      });
+
       const alerts = [];
-      if (slaViolations > 0) {
-        alerts.push({
-          type: 'sla_violation',
-          message: `${slaViolations} emergency reports missed SLA`,
-          severity: 'high'
-        });
-      }
+      openReports.forEach(report => {
+        if (!report.priority) return;
+        const p = report.priority.toLowerCase();
+        const limit = slaHours[p] || 168;
+        const passedHrs = (now.getTime() - new Date(report.created_at).getTime()) / (1000 * 60 * 60);
+
+        if (passedHrs > limit) {
+          alerts.push({
+            type: 'sla_violation',
+            message: `Ticket #${report.ticket_id} (${p}) is past resolution SLA`,
+            severity: p === 'emergency' || p === 'high' ? 'critical' : 'medium',
+            ticket_id: report.ticket_id,
+            equipment: report.equipment_description
+          });
+        }
+      });
 
       const dashboardData = {
         system_health: {
@@ -105,12 +165,7 @@ class AdminController {
           completion_rate: parseFloat(completionRate),
           avg_rating: parseFloat(avgRating.toFixed(1))
         },
-        sla_compliance: {
-          emergency: 95.2,
-          high: 89.7,
-          medium: 92.1,
-          low: 96.8
-        },
+        sla_compliance: sla_compliance,
         alerts: alerts
       };
 
@@ -121,8 +176,36 @@ class AdminController {
     } catch (error) {
       console.error('Get admin dashboard CRITICAL error:', error);
       res.status(500).json(errorResponse(
-        'Failed to retrieve admin dashboard data',
-        'DASHBOARD_ERROR'
+        `Dashboard Error: ${error.message}`,
+        'DASHBOARD_ERROR',
+        error.stack
+      ));
+    }
+  }
+
+  /**
+   * Get all reports (Admin view)
+   * GET /admin/reports
+   */
+  async getAllReports(req, res) {
+    try {
+      const reportService = require('../services/reportService');
+      const filters = req.query;
+
+      // Admin sees ALL reports, so we skip role-based filtering in the service
+      // by passing 'admin' role which handles it in getReports
+      const result = await reportService.getReports(filters, req.user.userId, 'admin');
+
+      // Transform for admin view if needed, but default format is usually okay
+      res.status(200).json(successResponse(
+        'Reports retrieved successfully',
+        result
+      ));
+    } catch (error) {
+      console.error('Admin get all reports error:', error);
+      res.status(500).json(errorResponse(
+        'Failed to retrieve reports',
+        'ADMIN_REPORTS_ERROR'
       ));
     }
   }

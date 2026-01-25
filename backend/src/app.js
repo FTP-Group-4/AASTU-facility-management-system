@@ -189,6 +189,7 @@ app.get('/api', (req, res) => {
         'GET /coordinators/:id/blocks - Get coordinator blocks',
         'GET /fixer/dashboard - Fixer dashboard',
         'GET /fixer/queue - Get job queue',
+        'GET /fixer/history - Get job history',
         'POST /fixer/jobs/:id/status - Update job status',
         'GET /admin/blocks - Get all blocks (admin)',
         'GET /admin/blocks/:id - Get block by ID (admin)',

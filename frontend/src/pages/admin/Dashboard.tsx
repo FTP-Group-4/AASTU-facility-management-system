@@ -82,6 +82,12 @@ const AdminDashboard = () => {
                         >
                             <Building size={18} /> Facilities
                         </button>
+                        <button
+                            onClick={() => navigate('/admin/reports')}
+                            className="px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-400 transition-all flex items-center gap-2 shadow-md"
+                        >
+                            <Activity size={18} /> Reports Registry
+                        </button>
                     </div>
                 </div>
             </div>

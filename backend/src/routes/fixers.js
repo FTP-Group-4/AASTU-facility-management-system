@@ -12,6 +12,17 @@ router.use((req, res, next) => {
 });
 
 /**
+ * @route GET /fixer/history
+ * @desc Get job history for fixer
+ * @access Private (Fixers only)
+ */
+router.get('/history',
+  authenticate,
+  authorize(['electrical_fixer', 'mechanical_fixer']),
+  fixerController.getJobHistory
+);
+
+/**
  * @route GET /fixer/dashboard
  * @desc Get fixer dashboard with assigned jobs and statistics
  * @access Private (Fixers only)

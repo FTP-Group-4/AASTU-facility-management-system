@@ -255,6 +255,17 @@ router.post('/reports/generate',
 );
 
 /**
+ * @route GET /admin/reports
+ * @desc Get all reports with filtering and pagination
+ * @access Private (Admin only)
+ */
+router.get('/reports',
+  authenticate,
+  authorize('admin'),
+  adminController.getAllReports
+);
+
+/**
  * @route GET /admin/reports/generate
  * @desc Handle GET requests gracefully (405 Method Not Allowed)
  * @access Private (Admin only)

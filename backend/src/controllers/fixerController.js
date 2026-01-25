@@ -228,6 +228,67 @@ class FixerController {
   }
 
   /**
+   * Get job history for fixer (completed and assigned jobs)
+   * @route GET /fixer/history
+   * @access Private (Fixers only)
+   */
+  async getJobHistory(req, res) {
+    try {
+      const fixerId = req.user.userId;
+      const { status, search } = req.query;
+
+      const whereCondition = {
+        assigned_to: fixerId,
+      };
+
+      if (status) {
+        whereCondition.status = status;
+      } else {
+        whereCondition.status = { in: ['completed', 'closed', 'assigned', 'in_progress'] };
+      }
+
+      if (search) {
+        whereCondition.OR = [
+          { ticket_id: { contains: search, mode: 'insensitive' } },
+          { equipment_description: { contains: search, mode: 'insensitive' } },
+          { problem_description: { contains: search, mode: 'insensitive' } }
+        ];
+      }
+
+      const jobs = await prisma.report.findMany({
+        where: whereCondition,
+        include: {
+          submitter: {
+            select: { full_name: true }
+          },
+          block: {
+            select: { block_number: true, name: true }
+          }
+        },
+        orderBy: { updated_at: 'desc' }
+      });
+
+      const transformedJobs = jobs.map(job => ({
+        id: job.id,
+        ticket_id: job.ticket_id,
+        priority: job.priority || 'low',
+        problem_summary: job.equipment_description,
+        status: job.status,
+        location: job.block ? `Block ${job.block.block_number}${job.room_number ? `, Room ${job.room_number}` : ''}` : 'General Location',
+        category: job.category,
+        completed_at: ['completed', 'closed'].includes(job.status) ? job.updated_at : null,
+        created_at: job.created_at,
+        reporter_name: job.submitter?.full_name || 'Unknown'
+      }));
+
+      return res.status(200).json(successResponse('Job history retrieved successfully', transformedJobs));
+    } catch (error) {
+      console.error('Error getting job history:', error);
+      return res.status(500).json(errorResponse('Failed to retrieve job history', 'HISTORY_ERROR'));
+    }
+  }
+
+  /**
    * Update job status
    * @route POST /fixer/jobs/:id/status
    * @access Private (Fixers only)
