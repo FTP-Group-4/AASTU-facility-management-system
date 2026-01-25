@@ -141,7 +141,7 @@ const ReviewReport = () => {
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     {currentReport.photos.map((photo, i) => (
                                         <a key={photo.id || i} href={getMediaUrl(photo.url)} target="_blank" rel="noopener noreferrer" className="rounded-lg overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity aspect-square block">
-                                            <img src={getMediaUrl(photo.thumbnail_url || photo.url)} alt="Report evidence" className="h-full w-full object-cover" />
+                                            <img src={getMediaUrl(photo.url)} alt="Report evidence" className="h-full w-full object-cover" />
                                         </a>
                                     ))}
                                 </div>

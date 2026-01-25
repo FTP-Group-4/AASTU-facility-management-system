@@ -150,7 +150,7 @@ const CoordinatorDashboard = () => {
             {pendingReports.length > 0 && (
               <div className="p-4 bg-gray-50 text-center border-t border-gray-100">
                 <button
-                  onClick={() => navigate('/coordinator/reports?status=submitted')}
+                  onClick={() => navigate('/coordinator/pending')}
                   className="text-indigo-600 text-sm font-bold hover:underline"
                 >
                   View All Pending Reports
@@ -200,7 +200,7 @@ const CoordinatorDashboard = () => {
             </div>
             <div className="p-4 bg-gray-50 text-center border-t border-gray-100">
               <button
-                onClick={() => navigate('/coordinator/assigned-blocks')}
+                onClick={() => navigate('/coordinator/blocks')}
                 className="text-indigo-600 text-sm font-bold hover:underline"
               >
                 View All Nodes
