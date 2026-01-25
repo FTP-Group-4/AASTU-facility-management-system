@@ -33,6 +33,7 @@ const Sidebar = () => {
             case 'mechanical_fixer':
                 return [
                     { to: '/fixer/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+                    { to: '/fixer/queue', icon: List, label: 'Job Queue' },
                     { to: '/fixer/jobs', icon: Briefcase, label: 'My Jobs' },
                 ];
             case 'admin':

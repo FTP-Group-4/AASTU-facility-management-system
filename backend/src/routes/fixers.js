@@ -6,6 +6,10 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { validate, paramSchemas, bodySchemas } = require('../middleware/validation');
 
 // Fixer routes
+router.use((req, res, next) => {
+  console.log(`[FIXER ROUTER] ${req.method} ${req.url}`);
+  next();
+});
 
 /**
  * @route GET /fixer/dashboard
@@ -30,13 +34,13 @@ router.get('/queue',
 );
 
 /**
- * @route POST /fixer/jobs/:id/status
+ * @route POST /fixer/jobs/:reportId/status
  * @desc Update job status (assigned, in_progress, completed)
  * @access Private (Fixers only)
  */
 router.post('/jobs/:id/status',
   (req, res, next) => {
-    console.log('=== FIXER ROUTE HIT ===', req.params.id);
+    console.log(`=== FIXER ROUTE HIT === Report: ${req.params.id}`);
     next();
   },
   authenticate,

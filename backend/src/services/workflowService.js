@@ -29,7 +29,7 @@ class WorkflowService {
       },
       approved: {
         allowedTransitions: ['assigned'],
-        requiredRoles: ['coordinator', 'admin'],
+        requiredRoles: ['coordinator', 'admin', 'electrical_fixer', 'mechanical_fixer'],
         actions: {
           assigned: 'assign'
         }
@@ -73,7 +73,7 @@ class WorkflowService {
       },
       reopened: {
         allowedTransitions: ['assigned'],
-        requiredRoles: ['coordinator', 'admin'],
+        requiredRoles: ['coordinator', 'admin', 'electrical_fixer', 'mechanical_fixer'],
         actions: {
           assigned: 'reassign'
         }
@@ -229,8 +229,60 @@ class WorkflowService {
   }
 
   /**
+   * Helper method to find a report by ID or Ticket ID
+   * @param {string} idOrTicketId - Either database ID or human-readable ticket ID
+   * @returns {Promise<object|null>} Report object
+   */
+  async findReportByIdOrTicket(idOrTicketId) {
+    if (!idOrTicketId) return null;
+
+    console.log(`Searching for report with ID or Ticket: ${idOrTicketId}`);
+
+    let report = null;
+
+    // Try finding by internal ID first - wrap in try-catch because Prisma might throw
+    // if the string doesn't look like a CUID/UUID
+    try {
+      report = await prisma.report.findUnique({
+        where: { id: idOrTicketId },
+        include: {
+          submitter: true,
+          assignee: true,
+          block: true
+        }
+      });
+    } catch (e) {
+      console.log(`Note: Internal ID lookup failed for ${idOrTicketId}, trying Ticket ID...`);
+    }
+
+    // If not found and it looks like a ticket ID, try finding by ticket_id
+    if (!report && (idOrTicketId.startsWith('AASTU-FIX-') || idOrTicketId.length > 20)) {
+      try {
+        report = await prisma.report.findUnique({
+          where: { ticket_id: idOrTicketId },
+          include: {
+            submitter: true,
+            assignee: true,
+            block: true
+          }
+        });
+      } catch (e) {
+        console.error(`Error finding report by Ticket ID ${idOrTicketId}:`, e);
+      }
+    }
+
+    if (report) {
+      console.log(`Found report! ID: ${report.id}, Ticket: ${report.ticket_id}`);
+    } else {
+      console.log(`No report found for: ${idOrTicketId}`);
+    }
+
+    return report;
+  }
+
+  /**
    * Execute a state transition with validation and history tracking
-   * @param {string} reportId - Report ID
+   * @param {string} reportId - Report ID or Ticket ID
    * @param {string} toStatus - Target status
    * @param {string} userId - User ID making the transition
    * @param {string} userRole - User role
@@ -239,15 +291,8 @@ class WorkflowService {
    */
   async executeTransition(reportId, toStatus, userId, userRole, transitionData = {}) {
     try {
-      // Get current report
-      const report = await prisma.report.findUnique({
-        where: { id: reportId },
-        include: {
-          submitter: true,
-          assignee: true,
-          block: true
-        }
-      });
+      // Get current report - supporting both ID types
+      const report = await this.findReportByIdOrTicket(reportId);
 
       if (!report) {
         throw new Error('Report not found');
@@ -561,14 +606,8 @@ class WorkflowService {
    */
   async getAvailableTransitions(reportId, userRole, userId) {
     try {
-      const report = await prisma.report.findUnique({
-        where: { id: reportId },
-        include: {
-          submitter: true,
-          assignee: true,
-          block: true
-        }
-      });
+      // Supporting both ID types
+      const report = await this.findReportByIdOrTicket(reportId);
 
       if (!report) {
         throw new Error('Report not found');
