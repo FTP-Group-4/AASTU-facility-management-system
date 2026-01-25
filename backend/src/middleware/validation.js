@@ -358,6 +358,7 @@ const reportSchemas = {
         }),
       otherwise: Joi.string()
         .max(500)
+        .allow('')
         .optional()
         .messages({
           'string.max': 'Comment must not exceed 500 characters'

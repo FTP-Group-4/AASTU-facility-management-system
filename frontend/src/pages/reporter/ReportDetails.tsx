@@ -42,8 +42,27 @@ const ReportDetails = () => {
     }
   }, [ticketId]);
 
+  // In ReviewReport component
+  useEffect(() => {
+    if (currentReport) {
+      console.log('ReviewReport photos:', currentReport.photos);
+    }
+  }, [currentReport]);
+
+  // In ReportDetails component
+  useEffect(() => {
+    if (currentReport) {
+      console.log('ReportDetails photos:', currentReport.photos);
+    }
+  }, [currentReport]);
+
   const handleRatingSubmit = async () => {
     if (!ticketId || rating === 0) return;
+
+    if (rating <= 3 && comment.trim().length < 20) {
+      alert("Please provide at least 20 characters of feedback for low ratings.");
+      return;
+    }
 
     try {
       await submitRating(ticketId, {
@@ -205,7 +224,7 @@ const ReportDetails = () => {
                 {currentReport.photos.map((photo, index) => (
                   <div key={photo.id} className="rounded-lg overflow-hidden border">
                     <img
-                      src={getMediaUrl(photo.thumbnail_url || photo.url)}
+                      src={getMediaUrl(photo.url)}
                       alt={`Report photo ${index + 1}`}
                       className="w-full h-48 object-cover cursor-pointer hover:scale-105 transition-transform"
                       onClick={() => window.open(getMediaUrl(photo.url), '_blank')}
@@ -322,7 +341,7 @@ const ReportDetails = () => {
                       Cancel
                     </Button>
                     <Button
-                      disabled={isLoading || rating === 0 || (rating <= 3 && !comment.trim())}
+                      disabled={isLoading || rating === 0 || (rating <= 3 && (!comment.trim() || comment.trim().length < 20))}
                       onClick={handleRatingSubmit}
                     >
                       {isLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
