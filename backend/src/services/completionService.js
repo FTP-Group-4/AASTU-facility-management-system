@@ -90,7 +90,7 @@ class CompletionService {
       } = updateData;
 
       const updateFields = {};
-      
+
       if (completion_notes !== undefined) {
         if (completion_notes.trim().length < 10) {
           throw new Error('Completion notes must be at least 10 characters long');
@@ -182,7 +182,7 @@ class CompletionService {
       // Determine new status based on rating and mark_still_broken flag
       let newStatus = 'closed';
       if (rating <= 1 || mark_still_broken) {
-        newStatus = 'reopened';
+        newStatus = 'submitted';
       } else if (rating <= 3) {
         newStatus = 'under_review'; // For coordinator review
       }
@@ -193,8 +193,9 @@ class CompletionService {
         const updatedReport = await tx.report.update({
           where: { id: reportId },
           data: {
-            rating: rating,
-            feedback: comment ? comment.trim() : null,
+            // If reopening/submitting, clear the rating so it can be rated again upon completion
+            rating: newStatus === 'submitted' ? null : rating,
+            feedback: newStatus === 'submitted' ? null : (comment ? comment.trim() : null),
             status: newStatus,
             updated_at: new Date()
           },
@@ -237,11 +238,11 @@ class CompletionService {
       // Create notification for rating-based status change
       try {
         const notificationService = require('./notificationService');
-        if (newStatus === 'reopened') {
+        if (newStatus === 'submitted') {
           await notificationService.createReportNotification(result, 'reopened', {
             rating: rating,
             feedback: comment,
-            reason: 'Low rating or marked as still broken'
+            reason: 'Low rating or marked as still broken (Re-submitted)'
           });
         } else if (newStatus === 'under_review') {
           await notificationService.createReportNotification(result, 'under_review', {
@@ -355,7 +356,7 @@ class CompletionService {
         const completedDate = new Date(report.completed_at);
         const now = new Date();
         const daysSinceCompletion = (now - completedDate) / (1000 * 60 * 60 * 24);
-        
+
         if (daysSinceCompletion > 7) {
           return {
             can_rate: false,

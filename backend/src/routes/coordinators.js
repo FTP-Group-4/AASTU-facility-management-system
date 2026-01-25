@@ -39,6 +39,26 @@ router.get('/reports/pending',
 );
 
 /**
+ * @route GET /coordinator/reports/approved
+ * @access Private (Coordinators only)
+ */
+router.get('/reports/approved',
+  authenticate,
+  authorize(['coordinator']),
+  coordinatorController.getApprovedReports
+);
+
+/**
+ * @route GET /coordinator/reports/rejected
+ * @access Private (Coordinators only)
+ */
+router.get('/reports/rejected',
+  authenticate,
+  authorize(['coordinator']),
+  coordinatorController.getRejectedReports
+);
+
+/**
  * @route GET /coordinator/reports/:ticket_id
  * @access Private (Coordinators only)
  */

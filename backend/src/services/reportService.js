@@ -146,15 +146,15 @@ class ReportService {
       if (!blockId) {
         throw new Error('Block ID is required for specific locations');
       }
-      
+
       // Validate block exists and is within range 1-100
       const block = await prisma.block.findFirst({
-        where: { 
+        where: {
           block_number: blockId,
           block_number: { gte: 1, lte: 100 }
         }
       });
-      
+
       if (!block) {
         throw new Error('Invalid block number. Block must be between 1 and 100');
       }
@@ -170,11 +170,11 @@ class ReportService {
       if (!locationDescription) {
         throw new Error('Location description is required for general locations');
       }
-      
+
       if (locationDescription.length < 5) {
         throw new Error('Location description must be at least 5 characters long');
       }
-      
+
       if (locationDescription.length > 200) {
         throw new Error('Location description must not exceed 200 characters');
       }
@@ -318,7 +318,7 @@ class ReportService {
    */
   async getReports(filters = {}, userId, userRole) {
     try {
-      const {
+      let {
         status,
         category,
         priority,
@@ -331,6 +331,15 @@ class ReportService {
         sort_order = 'desc'
       } = filters;
 
+      // Ensure pagination params are integers
+      page = parseInt(page) || 1;
+      limit = parseInt(limit) || 20;
+
+      // Ensure block_id is integer if present
+      if (block_id) {
+        block_id = parseInt(block_id);
+      }
+
       // Build where condition based on user role
       let whereCondition = {};
 
@@ -342,7 +351,7 @@ class ReportService {
         const assignments = await prisma.coordinatorAssignment.findMany({
           where: { coordinator_id: userId }
         });
-        
+
         const assignedBlockIds = assignments
           .map(a => a.block_id)
           .filter(Boolean);
@@ -367,7 +376,7 @@ class ReportService {
           {
             OR: [
               { assigned_to: userId },
-              { 
+              {
                 status: { in: ['approved'] },
                 assigned_to: null
               }
@@ -522,7 +531,7 @@ class ReportService {
       let duplicateResult = null;
       if (!ignoreDuplicates) {
         duplicateResult = await this.checkForDuplicates(reportData);
-        
+
         // If high-confidence duplicates found, return warning without creating report
         if (duplicateResult.has_duplicates && !ignoreDuplicates) {
           return {
@@ -562,7 +571,7 @@ class ReportService {
     try {
       const recordPromises = duplicates
         .filter(duplicate => duplicate.similarity_score >= 0.7) // Only record high-confidence duplicates
-        .map(duplicate => 
+        .map(duplicate =>
           duplicateDetectionService.recordDuplicate(
             duplicate.report_id,
             newReportId,
@@ -600,7 +609,7 @@ class ReportService {
   async associatePhotos(reportId, photoData) {
     try {
       const photos = await Promise.all(
-        photoData.map(photo => 
+        photoData.map(photo =>
           prisma.reportPhoto.create({
             data: {
               report_id: reportId,

@@ -36,6 +36,8 @@ interface ReportStore {
 
   // Coordinator Actions
   fetchCoordinatorReports: (filters?: ReportFilters) => Promise<void>;
+  fetchApprovedReports: (filters?: ReportFilters) => Promise<void>;
+  fetchRejectedReports: (filters?: ReportFilters) => Promise<void>;
   reviewReport: (ticketId: string, action: 'approve' | 'reject' | 'reviewing', priority?: string, reason?: string) => Promise<void>;
 }
 
@@ -173,6 +175,28 @@ export const useReportStore = create<ReportStore>()(
         set({ isLoading: true, error: null });
         try {
           const response = await coordinatorApi.getAssignedReports(filters || get().filters);
+          set({ reports: response.reports, isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+          throw error;
+        }
+      },
+
+      fetchApprovedReports: async (filters) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await coordinatorApi.getApprovedReports(filters || get().filters);
+          set({ reports: response.reports, isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+          throw error;
+        }
+      },
+
+      fetchRejectedReports: async (filters) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await coordinatorApi.getRejectedReports(filters || get().filters);
           set({ reports: response.reports, isLoading: false });
         } catch (error: any) {
           set({ error: error.message, isLoading: false });

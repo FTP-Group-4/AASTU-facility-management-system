@@ -1,36 +1,22 @@
-import { useState, useEffect } from 'react';
-import { MapPin, Clock, CheckCircle } from 'lucide-react';
+import { useEffect } from 'react';
+import { XCircle, MapPin, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useReportStore } from '../../stores/reportStore';
 
-const PendingApprovals = () => {
+const RejectedReports = () => {
     const navigate = useNavigate();
-    const { reports, fetchCoordinatorReports, isLoading, error, reviewReport } = useReportStore();
-    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const { reports, fetchRejectedReports, isLoading, error } = useReportStore();
 
     useEffect(() => {
-        fetchCoordinatorReports({ status: 'submitted' });
-    }, [fetchCoordinatorReports]);
-
-    const handleQuickAction = async (id: string, action: 'approve' | 'reject') => {
-        try {
-            setActionLoading(id);
-            await reviewReport(id, action, 'medium'); // Default priority
-        } catch (err) {
-            console.error('Failed to update report:', err);
-        } finally {
-            setActionLoading(null);
-        }
-    };
-
-    const pendingReports = reports.filter(r => r.status === 'submitted');
+        fetchRejectedReports();
+    }, [fetchRejectedReports]);
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Pending Approvals</h1>
-                    <p className="text-gray-500">Review and approve reporter submissions for your assigned blocks.</p>
+                    <h1 className="text-2xl font-bold text-gray-800">Rejected Reports</h1>
+                    <p className="text-gray-500">View reports that have been rejected.</p>
                 </div>
             </div>
 
@@ -41,20 +27,20 @@ const PendingApprovals = () => {
             )}
 
             <div className="space-y-4">
-                {isLoading && !actionLoading ? (
+                {isLoading ? (
                     <div className="flex items-center justify-center py-12">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                     </div>
-                ) : pendingReports.map(report => (
+                ) : reports.map(report => (
                     <div key={report.ticket_id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                         <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-                            <div className="flex-1">
+                            <div className="flex-1 opacity-75">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Submitted</span>
+                                    <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Rejected</span>
                                     <span className="text-[10px] font-mono text-gray-400">#{report.ticket_id}</span>
                                 </div>
-                                <h3 className="text-lg font-bold text-gray-900">{report.equipment_description || 'Untitled Report'}</h3>
-                                <p className="text-sm text-gray-600 mt-1 line-clamp-2">{report.problem_summary}</p>
+                                <h3 className="text-lg font-bold text-gray-900 line-through decoration-gray-400">{report.equipment_description || 'Untitled Report'}</h3>
+                                <p className="text-sm text-gray-500 mt-1 line-clamp-2">{report.problem_summary}</p>
                                 <div className="flex flex-wrap items-center text-xs text-gray-500 mt-2 gap-4">
                                     <span className="flex items-center"><MapPin className="w-3.5 h-3.5 mr-1 text-indigo-400" />
                                         {report.location?.block_name || (report.location?.block_id ? `Block ${report.location.block_id}` : 'N/A')}
@@ -70,34 +56,27 @@ const PendingApprovals = () => {
                             <div className="flex md:flex-col gap-2 min-w-[140px]">
                                 <button
                                     onClick={() => navigate(`/coordinator/reports/${report.ticket_id}`)}
-                                    className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-sm transition-colors text-xs text-center"
+                                    className="px-4 py-2 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 shadow-sm transition-colors text-xs text-center"
                                 >
-                                    Review Details
-                                </button>
-                                <button
-                                    disabled={!!actionLoading}
-                                    onClick={() => handleQuickAction(report.ticket_id, 'reject')}
-                                    className="px-4 py-2 bg-white border border-red-100 text-red-600 font-bold rounded-lg hover:bg-red-50 transition-colors text-xs disabled:opacity-50"
-                                >
-                                    {actionLoading === report.ticket_id ? 'Wait...' : 'Quick Reject'}
+                                    View Details
                                 </button>
                             </div>
                         </div>
                     </div>
                 ))}
 
-                {!isLoading && pendingReports.length === 0 && (
+                {!isLoading && reports.length === 0 && (
                     <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
-                        <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 text-green-500">
-                            <CheckCircle className="w-8 h-8" />
+                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                            <XCircle className="w-8 h-8" />
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900">All caught up!</h3>
-                        <p className="text-gray-500 mt-1">No pending reports to review in your blocks.</p>
+                        <h3 className="text-xl font-bold text-gray-900">No rejected reports</h3>
+                        <p className="text-gray-500 mt-1">You haven't rejected any reports.</p>
                         <button
                             onClick={() => navigate('/coordinator/dashboard')}
                             className="mt-6 text-indigo-600 font-bold hover:underline"
                         >
-                            Return to Dashboard
+                            Back to Dashboard
                         </button>
                     </div>
                 )}
@@ -106,4 +85,4 @@ const PendingApprovals = () => {
     );
 };
 
-export default PendingApprovals;
+export default RejectedReports;
