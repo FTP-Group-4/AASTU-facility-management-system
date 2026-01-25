@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Clock, User, AlertTriangle, Info, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, User, Info, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useReportStore } from '../../stores/reportStore';
 import { getMediaUrl } from '../../lib/urlUtils';
