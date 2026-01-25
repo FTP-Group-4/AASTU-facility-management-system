@@ -163,54 +163,125 @@ const ReviewReport = () => {
                             </div>
                         </div>
 
-                        <div className="bg-white border-2 border-indigo-100 p-5 rounded-xl shadow-lg relative">
-                            <h3 className="font-bold text-gray-800 mb-4">Determine Action</h3>
+                        {/* Conditional Sidebar Content */}
+                        {currentReport.status === 'submitted' || currentReport.status === 'pending_approval' ? (
+                            <div className="bg-white border-2 border-indigo-100 p-5 rounded-xl shadow-lg relative">
+                                <h3 className="font-bold text-gray-800 mb-4">Determine Action</h3>
 
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Set Priority</label>
-                                    <select
-                                        value={priority}
-                                        onChange={(e) => setPriority(e.target.value as ReportPriority)}
-                                        className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-sm"
-                                    >
-                                        <option value="low">Low Priority</option>
-                                        <option value="medium">Medium Priority</option>
-                                        <option value="high">High Priority</option>
-                                        <option value="emergency">EMERGENCY</option>
-                                    </select>
-                                </div>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Set Priority</label>
+                                        <select
+                                            value={priority}
+                                            onChange={(e) => setPriority(e.target.value as ReportPriority)}
+                                            className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-sm"
+                                        >
+                                            <option value="low">Low Priority</option>
+                                            <option value="medium">Medium Priority</option>
+                                            <option value="high">High Priority</option>
+                                            <option value="emergency">EMERGENCY</option>
+                                        </select>
+                                    </div>
 
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Rejection Reason (if applicable)</label>
-                                    <textarea
-                                        value={rejectionReason}
-                                        onChange={(e) => setRejectionReason(e.target.value)}
-                                        placeholder="Reason for rejection..."
-                                        className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500 h-24"
-                                    />
-                                </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Rejection Reason (if applicable)</label>
+                                        <textarea
+                                            value={rejectionReason}
+                                            onChange={(e) => setRejectionReason(e.target.value)}
+                                            placeholder="Reason for rejection..."
+                                            className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500 h-24"
+                                        />
+                                    </div>
 
-                                <div className="space-y-3 pt-2">
-                                    <button
-                                        onClick={() => handleAction('approve')}
-                                        disabled={isSubmitting}
-                                        className={`w-full flex items-center justify-center px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                        <CheckCircle className="w-5 h-5 mr-2" />
-                                        {isSubmitting ? 'Processing...' : 'Approve & Assign'}
-                                    </button>
-                                    <button
-                                        onClick={() => handleAction('reject')}
-                                        disabled={isSubmitting}
-                                        className={`w-full flex items-center justify-center px-4 py-3 bg-white border-2 border-red-100 text-red-600 font-bold rounded-xl hover:bg-red-50 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                        <XCircle className="w-5 h-5 mr-2" />
-                                        Reject Issue
-                                    </button>
+                                    <div className="space-y-3 pt-2">
+                                        <button
+                                            onClick={() => handleAction('approve')}
+                                            disabled={isSubmitting}
+                                            className={`w-full flex items-center justify-center px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                            <CheckCircle className="w-5 h-5 mr-2" />
+                                            {isSubmitting ? 'Processing...' : 'Approve & Assign'}
+                                        </button>
+                                        <button
+                                            onClick={() => handleAction('reject')}
+                                            disabled={isSubmitting}
+                                            className={`w-full flex items-center justify-center px-4 py-3 bg-white border-2 border-red-100 text-red-600 font-bold rounded-xl hover:bg-red-50 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                            <XCircle className="w-5 h-5 mr-2" />
+                                            Reject Issue
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        ) : currentReport.status === 'rejected' ? (
+                            <div className="bg-white border-2 border-gray-100 p-5 rounded-xl shadow-sm">
+                                <h3 className="font-bold text-red-700 mb-4 flex items-center">
+                                    <XCircle className="w-5 h-5 mr-2" /> Report Rejected
+                                </h3>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <span className="block text-xs font-bold text-gray-400 uppercase mb-1">Rejection Reason</span>
+                                        <p className="text-sm text-gray-700 bg-red-50 p-3 rounded-lg border border-red-100">
+                                            {currentReport.workflow?.find(w => w.action === 'reject')?.notes ||
+                                                currentReport.notes ||
+                                                'No specific reason provided.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            // Approved / Active States
+                            <div className="bg-white border-2 border-gray-100 p-5 rounded-xl shadow-sm">
+                                <h3 className="font-bold text-green-700 mb-4 flex items-center">
+                                    <CheckCircle className="w-5 h-5 mr-2" /> Report Approved
+                                </h3>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <span className="block text-xs font-bold text-gray-400 uppercase mb-1">Priority Level</span>
+                                        <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold uppercase
+                                            ${currentReport.priority === 'emergency' ? 'bg-red-100 text-red-700' :
+                                                currentReport.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                                                    currentReport.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                                        'bg-green-100 text-green-700'}`}>
+                                            {currentReport.priority}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <span className="block text-xs font-bold text-gray-400 uppercase mb-2">Fixer Assignment</span>
+                                        {(currentReport.status === 'assigned' || currentReport.status === 'in_progress' || currentReport.status === 'completed') ? (
+                                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                                {/* Using available assignee info if present in report type, otherwise checking workflow */}
+                                                <div className="flex items-center">
+                                                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold mr-2 text-xs">
+                                                        F
+                                                    </div>
+                                                    <div>
+                                                        {/* Note: currentReport might not have direct assignee field in Type, checking Report interface */}
+                                                        {/* If assignee not explicitly in type, we might see it in 'assignee' returned by backend */}
+                                                        <p className="text-sm font-bold text-gray-900">{(currentReport as any).assignee?.name || (currentReport as any).assignee?.full_name || 'Assigned Fixer'}</p>
+                                                        <p className="text-xs text-gray-500">{(currentReport as any).assignee?.email || 'Fixer'}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-yellow-800 text-sm flex items-center">
+                                                <Info className="w-4 h-4 mr-2" /> Hasn't been claimed yet
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <span className="block text-xs font-bold text-gray-400 uppercase mb-1">Current Status</span>
+                                        <span className="text-sm font-medium capitalize text-gray-700">
+                                            {currentReport.status.replace('_', ' ')}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

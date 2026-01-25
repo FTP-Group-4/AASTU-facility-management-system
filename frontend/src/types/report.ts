@@ -85,6 +85,7 @@ export interface ReportSummary {
     description?: string;
   };
   problem_summary: string;
+  equipment_description?: string;
   status: ReportStatus;
   priority: ReportPriority;
   submitted_at: string;

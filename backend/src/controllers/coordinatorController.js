@@ -20,6 +20,8 @@ class CoordinatorController {
     this.getAvailableFixers = this.getAvailableFixers.bind(this);
     this.getReport = this.getReport.bind(this);
     this.getPendingCount = this.getPendingCount.bind(this);
+    this.getApprovedReports = this.getApprovedReports.bind(this);
+    this.getRejectedReports = this.getRejectedReports.bind(this);
     this._transformReport = this._transformReport.bind(this);
   }
 
@@ -370,6 +372,54 @@ class CoordinatorController {
     } catch (error) {
       console.error('Error getting pending reports:', error);
       return res.status(500).json(errorResponse('Failed to retrieve pending reports', 'SYSTEM_001'));
+    }
+  }
+
+  /**
+   * coordinator: Get Approved Reports
+   * GET /coordinator/reports/approved
+   */
+  async getApprovedReports(req, res) {
+    try {
+      const coordinatorId = req.user.userId || req.user.id;
+      // Approved reports can be in various statuses after approval (assigned, in_progress, completed, closed)
+      // or just 'approved' waiting for assignment.
+      // Based on "track its progress", we include all post-approval statuses.
+      const filters = {
+        ...req.query,
+        status: { in: ['approved', 'assigned', 'in_progress', 'completed', 'closed'] }
+      };
+      const result = await reportService.getReports(filters, coordinatorId, 'coordinator');
+
+      if (result.reports) {
+        result.reports = result.reports.map(this._transformReport);
+      }
+
+      return res.status(200).json(successResponse('Approved reports retrieved successfully', result));
+    } catch (error) {
+      console.error('Error getting approved reports:', error);
+      return res.status(500).json(errorResponse('Failed to retrieve approved reports', 'SYSTEM_001'));
+    }
+  }
+
+  /**
+   * coordinator: Get Rejected Reports
+   * GET /coordinator/reports/rejected
+   */
+  async getRejectedReports(req, res) {
+    try {
+      const coordinatorId = req.user.userId || req.user.id;
+      const filters = { ...req.query, status: 'rejected' };
+      const result = await reportService.getReports(filters, coordinatorId, 'coordinator');
+
+      if (result.reports) {
+        result.reports = result.reports.map(this._transformReport);
+      }
+
+      return res.status(200).json(successResponse('Rejected reports retrieved successfully', result));
+    } catch (error) {
+      console.error('Error getting rejected reports:', error);
+      return res.status(500).json(errorResponse('Failed to retrieve rejected reports', 'SYSTEM_001'));
     }
   }
 

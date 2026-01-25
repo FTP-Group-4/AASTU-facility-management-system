@@ -4,6 +4,8 @@ import {
     PlusCircle,
     List,
     CheckSquare,
+    CheckCircle,
+    XCircle,
     Building2,
     Users,
     Settings,
@@ -46,6 +48,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 return [
                     { to: '/coordinator/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
                     { to: '/coordinator/pending', icon: CheckSquare, label: 'Pending Approvals' },
+                    { to: '/coordinator/approved', icon: CheckCircle, label: 'Approved Reports' },
+                    { to: '/coordinator/rejected', icon: XCircle, label: 'Rejected Reports' },
                     { to: '/coordinator/blocks', icon: Building2, label: 'My Blocks' },
                 ];
             case 'electrical_fixer':
