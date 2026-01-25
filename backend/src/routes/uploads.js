@@ -8,15 +8,29 @@ const { validate, fileSchemas } = require('../middleware/validation');
 // Configure multer middleware
 const upload = fileService.getMulterConfig();
 
+const rateLimit = require('express-rate-limit');
+
+// Strict rate limiting for photo uploads
+const uploadLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 10, // 10 uploads per minute
+  message: {
+    success: false,
+    message: 'Too many file uploads, please try again later.',
+    error_code: 'RATE_LIMIT_EXCEEDED'
+  }
+});
+
 // Upload photos (authenticated users only)
-router.post('/photos', 
+router.post('/photos',
   authenticate,
+  uploadLimiter,
   upload.array('photos', 3), // Accept up to 3 photos with field name 'photos'
   fileController.uploadPhotos
 );
 
 // Serve photo files (public access for now, can be restricted later)
-router.get('/photos/:filename', 
+router.get('/photos/:filename',
   validate(fileSchemas.photoFilename, 'params'),
   validate(fileSchemas.photoQuery, 'query'),
   fileController.servePhoto

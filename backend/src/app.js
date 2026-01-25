@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -32,7 +33,7 @@ app.use(helmet({
     },
   },
   crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: { policy: "cross-origin" }, // Set to cross-origin
+  crossOriginResourcePolicy: false, // Disable to allow cross-origin
   crossOriginOpenerPolicy: false,
   hsts: {
     maxAge: 31536000,
@@ -40,6 +41,13 @@ app.use(helmet({
     preload: true
   }
 }));
+
+// Serve static files from uploads directory with proper headers
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+}, express.static(path.join(process.cwd(), 'uploads')));
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -152,7 +160,7 @@ const analyticsRoutes = require('./routes/analytics');
 
 // API routes with specific rate limiting
 app.use('/auth', authLimiter, authRoutes);
-app.use('/uploads', uploadLimiter, uploadRoutes);
+app.use('/uploads', uploadRoutes);
 app.use('/users', userRoutes);
 app.use('/blocks', blockRoutes);
 app.use('/admin', adminRoutes);

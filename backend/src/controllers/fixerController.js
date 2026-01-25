@@ -118,7 +118,11 @@ class FixerController {
         sla_deadline: null,
         sla_remaining: null,
         reporter_name: job.submitter ? job.submitter.full_name : 'Unknown',
-        photos: job.photos ? job.photos.map(photo => photo.thumbnail_path || photo.filename) : [],
+        photos: (job.photos || []).map(photo => ({
+          id: photo.id,
+          url: `/uploads/photos/${photo.filename}`,
+          thumbnail_url: photo.thumbnail_path ? `/uploads/photos/${photo.filename}?thumbnail=true` : `/uploads/photos/${photo.filename}`
+        })),
         status: job.status
       }));
       console.log('Transformation complete, jobs:', transformedJobs.length);
@@ -263,7 +267,8 @@ class FixerController {
           },
           block: {
             select: { block_number: true, name: true }
-          }
+          },
+          photos: true
         },
         orderBy: { updated_at: 'desc' }
       });
@@ -276,6 +281,11 @@ class FixerController {
         status: job.status,
         location: job.block ? `Block ${job.block.block_number}${job.room_number ? `, Room ${job.room_number}` : ''}` : 'General Location',
         category: job.category,
+        photos: (job.photos || []).map(photo => ({
+          id: photo.id,
+          url: `/uploads/photos/${photo.filename}`,
+          thumbnail_url: photo.thumbnail_path ? `/uploads/photos/${photo.filename}?thumbnail=true` : `/uploads/photos/${photo.filename}`
+        })),
         completed_at: ['completed', 'closed'].includes(job.status) ? job.updated_at : null,
         created_at: job.created_at,
         reporter_name: job.submitter?.full_name || 'Unknown'

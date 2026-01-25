@@ -169,6 +169,7 @@ const AdminReportDetails = () => {
                                         <img
                                             src={getMediaUrl(photo.url)}
                                             alt="Evidence"
+                                            crossOrigin="anonymous"
                                             className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
                                         />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

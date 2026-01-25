@@ -306,7 +306,14 @@ class ReportController {
       res.status(200).json(successResponse(
         'Reports retrieved successfully',
         {
-          reports: transformedReports,
+          reports: transformedReports.map(report => ({
+            ...report,
+            photos: (result.reports.find(r => r.ticket_id === report.ticket_id)?.photos || []).map(p => ({
+              id: p.id,
+              url: `/uploads/photos/${p.filename}`,
+              thumbnail_url: p.thumbnail_path ? `/uploads/photos/${p.filename}?thumbnail=true` : `/uploads/photos/${p.filename}`
+            }))
+          })),
           summary,
           pagination: result.pagination
         }
