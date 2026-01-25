@@ -5,7 +5,6 @@ import {
   Calendar,
   Building,
   User,
-  Clock,
   FileText,
   Image,
   MessageSquare,
