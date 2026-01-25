@@ -39,6 +39,33 @@ export const coordinatorApi = {
     return response.data;
   },
 
+  // Get approved reports
+  getApprovedReports: async (filters?: ReportFilters): Promise<ReportsResponse> => {
+    const params = new URLSearchParams();
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.block_id) params.append('block_id', filters.block_id.toString());
+    // Add other filters as needed
+
+    const response = await api.get<ReportApiResponse<ReportsResponse>>(
+      `/coordinator/reports/approved?${params.toString()}`
+    ) as any;
+    return response.data;
+  },
+
+  // Get rejected reports
+  getRejectedReports: async (filters?: ReportFilters): Promise<ReportsResponse> => {
+    const params = new URLSearchParams();
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.block_id) params.append('block_id', filters.block_id.toString());
+
+    const response = await api.get<ReportApiResponse<ReportsResponse>>(
+      `/coordinator/reports/rejected?${params.toString()}`
+    ) as any;
+    return response.data;
+  },
+
   // Review and approve/reject report
   reviewReport: async (ticketId: string, data: ReviewReportRequest): Promise<ReviewReportResponse> => {
     const response = await api.post<ReportApiResponse<ReviewReportResponse>>(

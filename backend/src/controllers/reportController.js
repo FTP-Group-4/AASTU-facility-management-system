@@ -521,8 +521,19 @@ class ReportController {
         ));
       }
 
+      let reportId = id;
+
+      // Check if ID is a ticket ID format (AASTU-FIX-...)
+      if (id.startsWith('AASTU-FIX-')) {
+        const report = await reportService.getReportByTicketId(id);
+        if (!report) {
+          return res.status(404).json(notFoundResponse('Report'));
+        }
+        reportId = report.id;
+      }
+
       // Use completion service to submit rating
-      const result = await completionService.submitRating(id, userId, {
+      const result = await completionService.submitRating(reportId, userId, {
         rating,
         comment,
         mark_still_broken
@@ -530,8 +541,8 @@ class ReportController {
 
       // Create appropriate message based on new status
       let message = 'Thank you for your feedback.';
-      if (result.new_status === 'reopened') {
-        message = 'Report has been reopened for further attention.';
+      if (result.new_status === 'submitted') {
+        message = 'Report has been reopened and submitted for further attention.';
       } else if (result.new_status === 'under_review') {
         message = 'Thank you for your feedback. Coordinator will review.';
       } else {
@@ -795,8 +806,13 @@ class ReportController {
     if (userRole === 'reporter' && report.submitted_by === userId) return true;
 
     // Assigned fixer can access their assigned reports
-    if ((userRole === 'electrical_fixer' || userRole === 'mechanical_fixer') &&
-      report.assigned_to === userId) return true;
+    if ((userRole === 'electrical_fixer' || userRole === 'mechanical_fixer')) {
+      // Allow if assigned to them
+      if (report.assigned_to === userId) return true;
+      // Allow if unassigned and approved (available in job queue)
+      // This addresses the issue where they can see it in queue but not click details
+      if (report.status === 'approved') return true;
+    }
 
     // Coordinator can access reports in their assigned blocks
     if (userRole === 'coordinator') {

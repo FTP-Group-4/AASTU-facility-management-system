@@ -7,7 +7,6 @@ import Pagination from '../../common/UI/Pagination';
 import ReportCard from './ReportCard';
 import { useReportStore } from '../../../stores/reportStore';
 import type { ReportFilters, ReportStatus, ReportPriority } from '../../../types/report';
-import { cn } from '../../../lib/utils';
 
 interface ReportListProps {
   isCoordinator?: boolean;
@@ -26,7 +25,6 @@ const ReportList = ({
     isLoading, 
     fetchMyReports, 
     fetchCoordinatorReports,
-    setFilters 
   } = useReportStore();
 
   const [localFilters, setLocalFilters] = useState<ReportFilters>({

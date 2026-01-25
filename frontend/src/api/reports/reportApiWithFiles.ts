@@ -122,6 +122,13 @@ export const reportApiWithFiles = {
 
         const data = response.data.report;
 
+        // In reportApiWithFiles.getReport
+        console.log('Reporter: Fetching report for ticket:', ticketId);
+        
+        console.log('Reporter API response data:', response.data);
+        console.log('Reporter Photos in response:', response.data?.report?.photos);
+
+
         return {
             ...data,
             submitted_at: data.created_at || data.submitted_at,
@@ -138,8 +145,8 @@ export const reportApiWithFiles = {
             },
             photos: data.photos?.map((p: any) => ({
                 id: p.id,
-                url: p.file_path,
-                thumbnail_url: p.thumbnail_path
+                url: p.url,
+                thumbnail_url: p.url
             })) || [],
             workflow: data.workflow_history?.map((w: any) => ({
                 action: w.action,

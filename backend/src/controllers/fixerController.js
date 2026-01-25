@@ -166,7 +166,7 @@ class FixerController {
       const queueJobs = await prisma.report.findMany({
         where: {
           category: fixerCategory,
-          status: { in: ['approved', 'assigned'] },
+          status: 'approved',
           OR: [
             { assigned_to: null },
             { assigned_to: fixerId }

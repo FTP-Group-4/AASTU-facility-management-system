@@ -32,8 +32,8 @@ const JobQueue = () => {
             setAcceptingJob(id);
             console.log(`Accepting job: ${ticketId} (Internal ID: ${id})`);
             await fixerService.updateJobStatus(id, { status: 'assigned' });
-            // Refresh the queue after accepting
-            await fetchQueue();
+            // Navigate to My Jobs for immediate feedback
+            window.location.href = '/fixer/jobs'; // Force navigation, or use navigate hook
         } catch (err: any) {
             console.error('Error accepting job:', err);
             const errorMessage = err.message || err.response?.data?.message || 'Failed to accept job';
@@ -114,7 +114,10 @@ const JobQueue = () => {
                 <div className="divide-y divide-gray-100">
                     {queueData.queue.length > 0 ? queueData.queue.map((job) => (
                         <div key={job.id} className="p-6 md:p-8 hover:bg-gray-50/50 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group">
-                            <div className="flex items-start gap-6">
+                            <div
+                                className="flex items-start gap-6 cursor-pointer flex-1"
+                                onClick={() => window.location.href = `/fixer/jobs/${job.id}`}
+                            >
                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-105 ${getPriorityStyles(job.priority)}`}>
                                     <AlertCircle className="w-6 h-6" />
                                 </div>
@@ -145,15 +148,13 @@ const JobQueue = () => {
                                 </div>
                             </div>
 
-                            {!job.assigned_to_me && (
-                                <button
-                                    onClick={() => handleAcceptJob(job.id, job.ticket_id)}
-                                    disabled={acceptingJob === job.id}
-                                    className="px-8 py-3.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg border-b-4 border-indigo-800 hover:bg-indigo-700 hover:translate-y-0.5 transition-all active:translate-y-1 active:border-b-0 text-xs uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {acceptingJob === job.id ? 'Accepting...' : 'Claim This Job'} <ChevronRight className="w-4 h-4" />
-                                </button>
-                            )}
+                            <button
+                                onClick={() => handleAcceptJob(job.id, job.ticket_id)}
+                                disabled={acceptingJob === job.id}
+                                className="px-8 py-3.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg border-b-4 border-indigo-800 hover:bg-indigo-700 hover:translate-y-0.5 transition-all active:translate-y-1 active:border-b-0 text-xs uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {acceptingJob === job.id ? 'Accepting...' : (job.assigned_to_me ? 'Confirm & Start' : 'Claim This Job')} <ChevronRight className="w-4 h-4" />
+                            </button>
                         </div>
                     )) : (
                         <div className="p-12 text-center text-gray-500">

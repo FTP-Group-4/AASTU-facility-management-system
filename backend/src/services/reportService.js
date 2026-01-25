@@ -332,9 +332,18 @@ class ReportService {
         search
       } = filters;
 
+      
       // Ensure page and limit are integers
       page = parseInt(page, 10) || 1;
       limit = parseInt(limit, 10) || 20;
+      // Ensure pagination params are integers
+      page = parseInt(page) || 1;
+      limit = parseInt(limit) || 20;
+
+      // Ensure block_id is integer if present
+      if (block_id) {
+        block_id = parseInt(block_id);
+      }
 
       // Build where condition based on user role
       let whereCondition = {};

@@ -319,6 +319,16 @@ class WorkflowService {
             throw new Error('Priority is required when approving a report');
           }
           updateData.priority = transitionData.priority;
+
+          // Clear any previous rating/feedback when approved for work (new cycle)
+          updateData.rating = null;
+          updateData.feedback = null;
+          break;
+
+        case 'reopened':
+          // Clear rating/feedback when explicitly reopened
+          updateData.rating = null;
+          updateData.feedback = null;
           break;
 
         case 'rejected':

@@ -16,6 +16,8 @@ const ReportDetails = lazy(() => import('../pages/reporter/ReportDetails').then(
 // Coordinator
 const CoordinatorDashboard = lazy(() => import('../pages/coordinator/Dashboard').then(module => ({ default: (module as any).default ?? (module as any).Dashboard }) as { default: ComponentType<any> }));
 const PendingApprovals = lazy(() => import('../pages/coordinator/PendingApprovals').then(module => ({ default: (module as any).default ?? (module as any).PendingApprovals }) as { default: ComponentType<any> }));
+const ApprovedReports = lazy(() => import('../pages/coordinator/ApprovedReports').then(module => ({ default: (module as any).default ?? (module as any).ApprovedReports }) as { default: ComponentType<any> }));
+const RejectedReports = lazy(() => import('../pages/coordinator/RejectedReports').then(module => ({ default: (module as any).default ?? (module as any).RejectedReports }) as { default: ComponentType<any> }));
 const AssignedBlocks = lazy(() => import('../pages/coordinator/AssignedBlocks').then(module => ({ default: (module as any).default ?? (module as any).AssignedBlocks }) as { default: ComponentType<any> }));
 const ReviewReport = lazy(() => import('../pages/coordinator/ReviewReport').then(module => ({ default: (module as any).default ?? (module as any).ReviewReport }) as { default: ComponentType<any> }));
 
@@ -67,6 +69,8 @@ const PrivateRoutes = () => {
               <Routes>
                 <Route path="dashboard" element={<CoordinatorDashboard />} />
                 <Route path="pending" element={<PendingApprovals />} />
+                <Route path="approved" element={<ApprovedReports />} />
+                <Route path="rejected" element={<RejectedReports />} />
                 <Route path="reports/:id" element={<ReviewReport />} />
                 <Route path="blocks" element={<AssignedBlocks />} />
                 <Route path="profile" element={<Profile />} />
