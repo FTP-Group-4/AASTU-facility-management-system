@@ -21,6 +21,7 @@ const ReviewReport = lazy(() => import('../pages/coordinator/ReviewReport').then
 
 // Fixer
 const FixerDashboard = lazy(() => import('../pages/fixer/Dashboard').then(module => ({ default: (module as any).default ?? (module as any).FixerDashboard }) as { default: ComponentType<any> }));
+const JobQueue = lazy(() => import('../pages/fixer/JobQueue').then(module => ({ default: (module as any).default ?? (module as any).JobQueue }) as { default: ComponentType<any> }));
 const MyJobs = lazy(() => import('../pages/fixer/MyJobs').then(module => ({ default: (module as any).default ?? (module as any).MyJobs }) as { default: ComponentType<any> }));
 const JobDetails = lazy(() => import('../pages/fixer/JobDetails').then(module => ({ default: (module as any).default ?? (module as any).JobDetails }) as { default: ComponentType<any> }));
 
@@ -76,6 +77,7 @@ const PrivateRoutes = () => {
             <ProtectedRoute requiredRole={['electrical_fixer', 'mechanical_fixer']}>
               <Routes>
                 <Route path="dashboard" element={<FixerDashboard />} />
+                <Route path="queue" element={<JobQueue />} />
                 <Route path="jobs" element={<MyJobs />} />
                 <Route path="jobs/:id" element={<JobDetails />} />
                 <Route path="profile" element={<Profile />} />

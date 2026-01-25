@@ -17,9 +17,9 @@ class FixerController {
     try {
       const fixerId = req.user.userId; // Changed from req.user.id to req.user.userId
       const userRole = req.user.role;
-      
+
       console.log('Dashboard request for fixer:', fixerId, 'role:', userRole);
-      
+
       // Determine fixer category
       const fixerCategory = userRole === 'electrical_fixer' ? 'electrical' : 'mechanical';
 
@@ -63,7 +63,7 @@ class FixerController {
       // Get completed jobs today
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      
+
       console.log('Getting completed jobs count...');
       const completedToday = await prisma.report.count({
         where: {
@@ -100,13 +100,14 @@ class FixerController {
       });
       console.log('Completed jobs for avg:', completedJobs.length);
 
-      const avgCompletionTime = completedJobs.length > 0 
+      const avgCompletionTime = completedJobs.length > 0
         ? completedJobs.reduce((sum, job) => sum + (job.time_spent_minutes || 0), 0) / completedJobs.length
         : 0;
 
       console.log('Starting transformation...');
       // Transform jobs for response - simplified to avoid hanging
       const transformedJobs = assignedJobs.map(job => ({
+        id: job.id,
         ticket_id: job.ticket_id,
         priority: job.priority || 'low',
         priority_color: 'gray',
@@ -155,9 +156,9 @@ class FixerController {
     try {
       const fixerId = req.user.userId; // Changed from req.user.id to req.user.userId
       const userRole = req.user.role;
-      
+
       console.log('Queue request for fixer:', fixerId, 'role:', userRole);
-      
+
       // Determine fixer category
       const fixerCategory = userRole === 'electrical_fixer' ? 'electrical' : 'mechanical';
 
@@ -196,6 +197,7 @@ class FixerController {
 
       // Transform jobs for response - simplified to avoid hanging
       const transformedQueue = queueJobs.map(job => ({
+        id: job.id,
         ticket_id: job.ticket_id,
         priority: job.priority || 'low',
         location: 'Block 1, Room 101',
@@ -365,7 +367,7 @@ class FixerController {
 
     const deadlineStr = FixerController.calculateSLADeadline(createdAt, priority);
     if (!deadlineStr) return null;
-    
+
     const deadline = new Date(deadlineStr);
     const now = new Date();
     const remaining = deadline - now;
@@ -399,17 +401,17 @@ class FixerController {
    */
   static calculateSLAUrgency(createdAt, priority) {
     if (!priority) return 'LOW';
-    
+
     const deadlineStr = FixerController.calculateSLADeadline(createdAt, priority);
     if (!deadlineStr) return 'LOW';
-    
+
     const deadline = new Date(deadlineStr);
     const now = new Date();
     const remaining = deadline - now;
     const total = FixerController.getSLAHours(priority) * 60 * 60 * 1000; // Convert to milliseconds
 
     if (total <= 0) return 'LOW';
-    
+
     const percentRemaining = remaining / total;
 
     if (remaining <= 0) return 'OVERDUE';
