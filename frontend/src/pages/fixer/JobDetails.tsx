@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Clock, CheckCircle, Wrench, User, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, CheckCircle, Wrench, User, AlertCircle, Image as ImageIcon } from 'lucide-react';
 import { fixerService } from '../../services/fixerService';
+import { getMediaUrl } from '../../lib/urlUtils';
 
 const JobDetails = () => {
     const { id } = useParams<{ id: string }>();
@@ -16,6 +17,7 @@ const JobDetails = () => {
             try {
                 setLoading(true);
                 const data = await fixerService.getJobDetails(id);
+                console.log('Fixer Job Details Loaded:', data);
                 setJob(data);
             } catch (err: any) {
                 console.error('Error fetching job details:', err);
@@ -123,15 +125,25 @@ const JobDetails = () => {
 
                         {job.photos && job.photos.length > 0 && (
                             <div className="space-y-4">
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Evidence Photos</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {job.photos.map((p: any, i: number) => (
-                                        <div key={i} className="relative group">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    {job.photos.map((photo: any, i: number) => (
+                                        <div key={photo.id || i} className="group relative rounded-2xl overflow-hidden border border-gray-100 aspect-square shadow-sm bg-gray-50">
                                             <img
-                                                src={p.url || p}
-                                                className="rounded-xl border border-gray-100 object-cover w-full h-48 shadow-sm transition-transform group-hover:scale-[1.02]"
+                                                src={getMediaUrl(photo.url || photo)}
                                                 alt={`Issue Evidence ${i + 1}`}
+                                                crossOrigin="anonymous"
+                                                className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <a
+                                                    href={getMediaUrl(photo.url || photo)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="p-3 bg-white rounded-full text-indigo-600 scale-50 group-hover:scale-100 transition-transform duration-300 shadow-xl"
+                                                >
+                                                    <ImageIcon size={20} />
+                                                </a>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

@@ -93,6 +93,15 @@ export const fixerService = {
     updateJobStatus: async (ticketId: string, data: UpdateJobStatusPayload): Promise<any> => {
         const response = await api.post(`/fixer/jobs/${ticketId}/status`, data);
         return response.data; // Correctly return the data field from the server response
+    },
+
+    /**
+     * Get job history for current fixer
+     * GET /fixer/history
+     */
+    getJobHistory: async (params?: { status?: string; search?: string }): Promise<any[]> => {
+        const response = await api.get('/fixer/history', { params });
+        return response.data;
     }
 };
 

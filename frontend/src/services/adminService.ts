@@ -81,5 +81,23 @@ export const adminService = {
     getSystemConfig: async () => {
         const response = await api.get('/admin/config');
         return response.data;
+    },
+
+    /**
+     * Get all reports (Admin view)
+     * GET /admin/reports
+     */
+    getAllReports: async (params?: any) => {
+        const response = await api.get('/admin/reports', { params });
+        return response.data;
+    },
+
+    /**
+     * Get report by ID (Admin view)
+     * GET /admin/reports/:id
+     */
+    getReportById: async (id: string) => {
+        const response = await api.get(`/reports/${id}`);
+        return response.data;
     }
 };

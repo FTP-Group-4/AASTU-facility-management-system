@@ -12,29 +12,28 @@ class FileController {
 
       // Validate files
       const validation = fileService.validatePhotoUpload(files);
-      if (!validation.valid) {
-        return errorResponse(res, validation.error, 'INVALID_UPLOAD', 400);
-      }
-
       // Process and save photos
       const processedPhotos = await fileService.processMultiplePhotos(files);
 
-      return successResponse(res, {
-        photos: processedPhotos,
-        count: processedPhotos.length
-      }, 'Photos uploaded successfully', 201);
+      return res.status(201).json(successResponse(
+        'Photos uploaded successfully',
+        {
+          photos: processedPhotos,
+          count: processedPhotos.length
+        }
+      ));
 
     } catch (error) {
       console.error('Photo upload error:', error);
-      
+
       if (error.code === 'LIMIT_FILE_SIZE') {
         return errorResponse(res, 'File size exceeds 5MB limit', 'FILE_TOO_LARGE', 400);
       }
-      
+
       if (error.code === 'LIMIT_FILE_COUNT') {
         return errorResponse(res, 'Maximum 3 photos allowed per upload', 'TOO_MANY_FILES', 400);
       }
-      
+
       if (error.code === 'LIMIT_UNEXPECTED_FILE') {
         return errorResponse(res, 'Unexpected file field', 'INVALID_FIELD', 400);
       }
@@ -76,10 +75,10 @@ class FileController {
 
       // Check if photo exists with timeout
       const existsPromise = fileService.photoExists(filename);
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Timeout')), 2000)
       );
-      
+
       let exists;
       try {
         exists = await Promise.race([existsPromise, timeoutPromise]);
@@ -109,14 +108,19 @@ class FileController {
       // Get file path
       const filePath = fileService.getPhotoPath(filename, thumbnail === 'true');
 
+      // Determine content type based on extension
+      const ext = filename.split('.').pop().toLowerCase();
+      const contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+
       // Set appropriate headers
-      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Type', contentType);
       res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-      
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
       // Send file using absolute path
       const path = require('path');
       const absolutePath = path.resolve(filePath);
-      
+
       res.sendFile(absolutePath, (err) => {
         if (err) {
           console.error('Error serving photo:', err);
@@ -162,20 +166,20 @@ class FileController {
       // Check if photo exists
       const exists = await fileService.photoExists(filename);
       if (!exists) {
-        return errorResponse(res, 'Photo not found', 'PHOTO_NOT_FOUND', 404);
+        return res.status(404).json(errorResponse('Photo not found', 'PHOTO_NOT_FOUND'));
       }
 
       // Delete photo
       const deleted = await fileService.deletePhoto(filename);
       if (!deleted) {
-        return errorResponse(res, 'Failed to delete photo', 'DELETE_ERROR', 500);
+        return res.status(500).json(errorResponse('Failed to delete photo', 'DELETE_ERROR'));
       }
 
-      return successResponse(res, null, 'Photo deleted successfully');
+      return res.status(200).json(successResponse('Photo deleted successfully'));
 
     } catch (error) {
       console.error('Photo delete error:', error);
-      return errorResponse(res, 'Failed to delete photo', 'DELETE_ERROR', 500);
+      return res.status(500).json(errorResponse('Failed to delete photo', 'DELETE_ERROR'));
     }
   }
 

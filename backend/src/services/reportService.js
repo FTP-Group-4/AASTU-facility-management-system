@@ -328,9 +328,14 @@ class ReportService {
         page = 1,
         limit = 20,
         sort_by = 'created_at',
-        sort_order = 'desc'
+        sort_order = 'desc',
+        search
       } = filters;
 
+      
+      // Ensure page and limit are integers
+      page = parseInt(page, 10) || 1;
+      limit = parseInt(limit, 10) || 20;
       // Ensure pagination params are integers
       page = parseInt(page) || 1;
       limit = parseInt(limit) || 20;
@@ -343,7 +348,7 @@ class ReportService {
       // Build where condition based on user role
       let whereCondition = {};
 
-      // Role-based access control
+      // Role-based access control (RBAC)
       if (userRole === 'reporter') {
         whereCondition.submitted_by = userId;
       } else if (userRole === 'coordinator') {
@@ -393,6 +398,18 @@ class ReportService {
       if (block_id) whereCondition.block_id = block_id;
       if (submitted_by) whereCondition.submitted_by = submitted_by;
       if (assigned_to) whereCondition.assigned_to = assigned_to;
+
+      // Apply search if provided
+      if (search && search.trim() !== '') {
+        const searchLower = search.trim();
+        whereCondition.OR = [
+          ...(whereCondition.OR || []),
+          { ticket_id: { contains: searchLower, mode: 'insensitive' } },
+          { equipment_description: { contains: searchLower, mode: 'insensitive' } },
+          { problem_description: { contains: searchLower, mode: 'insensitive' } },
+          { location_description: { contains: searchLower, mode: 'insensitive' } }
+        ];
+      }
 
       // Get reports with pagination
       const [reports, total] = await Promise.all([

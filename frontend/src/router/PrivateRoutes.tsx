@@ -25,6 +25,7 @@ const ReviewReport = lazy(() => import('../pages/coordinator/ReviewReport').then
 const FixerDashboard = lazy(() => import('../pages/fixer/Dashboard').then(module => ({ default: (module as any).default ?? (module as any).FixerDashboard }) as { default: ComponentType<any> }));
 const JobQueue = lazy(() => import('../pages/fixer/JobQueue').then(module => ({ default: (module as any).default ?? (module as any).JobQueue }) as { default: ComponentType<any> }));
 const MyJobs = lazy(() => import('../pages/fixer/MyJobs').then(module => ({ default: (module as any).default ?? (module as any).MyJobs }) as { default: ComponentType<any> }));
+const JobHistory = lazy(() => import('../pages/fixer/JobHistory').then(module => ({ default: (module as any).default ?? (module as any).JobHistory }) as { default: ComponentType<any> }));
 const JobDetails = lazy(() => import('../pages/fixer/JobDetails').then(module => ({ default: (module as any).default ?? (module as any).JobDetails }) as { default: ComponentType<any> }));
 
 // Admin Pages
@@ -32,6 +33,8 @@ const AdminDashboard = lazy(() => import('../pages/admin/Dashboard').then(module
 const AdminUsers = lazy(() => import('../pages/admin/Users').then(module => ({ default: (module as any).default ?? (module as any).Users }) as { default: ComponentType<any> }));
 const AdminBlocks = lazy(() => import('../pages/admin/Blocks').then(module => ({ default: (module as any).default ?? (module as any).Blocks }) as { default: ComponentType<any> }));
 const AdminAssignments = lazy(() => import('../pages/admin/Assignments').then(module => ({ default: (module as any).default ?? (module as any).Assignments }) as { default: ComponentType<any> }));
+const AdminReports = lazy(() => import('../pages/admin/Reports').then(module => ({ default: (module as any).default ?? (module as any).AdminReports }) as { default: ComponentType<any> }));
+const AdminReportDetails = lazy(() => import('../pages/admin/ReportDetails').then(module => ({ default: (module as any).default ?? (module as any).AdminReportDetails }) as { default: ComponentType<any> }));
 const AdminSettings = lazy(() => import('../pages/admin/Settings').then(module => ({ default: (module as any).default ?? (module as any).Settings }) as { default: ComponentType<any> }));
 
 const Profile = lazy(() => import('../pages/shared/Profile').then(module => ({ default: (module as any).default ?? (module as any).Profile }) as { default: ComponentType<any> }));
@@ -83,6 +86,7 @@ const PrivateRoutes = () => {
                 <Route path="dashboard" element={<FixerDashboard />} />
                 <Route path="queue" element={<JobQueue />} />
                 <Route path="jobs" element={<MyJobs />} />
+                <Route path="history" element={<JobHistory />} />
                 <Route path="jobs/:id" element={<JobDetails />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="" element={<Navigate to="dashboard" replace />} />
@@ -97,6 +101,8 @@ const PrivateRoutes = () => {
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="blocks" element={<AdminBlocks />} />
+                <Route path="reports" element={<AdminReports />} />
+                <Route path="reports/:id" element={<AdminReportDetails />} />
                 <Route path="assignments" element={<AdminAssignments />} />
                 <Route path="config" element={<AdminSettings />} />
                 <Route path="profile" element={<Profile />} />
